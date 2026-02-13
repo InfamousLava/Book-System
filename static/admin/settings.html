@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Inventro Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-icon">📊</div>
+                    <span>Inventro Admin</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/admin/sales.html" class="nav-item">
+                    <span class="nav-icon">💰</span> Sales History
+                </a>
+                <a href="/admin/inventory.html" class="nav-item">
+                    <span class="nav-icon">📦</span> Inventory
+                </a>
+
+                <div class="nav-section">Management</div>
+                <a href="/admin/staff.html" class="nav-item">
+                    <span class="nav-icon">👥</span> Staff & Users
+                </a>
+                <a href="/admin/settings.html" class="nav-item active">
+                    <span class="nav-icon">🎟️</span> Coupons & Promos
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">A</div>
+                    <div class="user-details">
+                        <div class="user-name">Admin</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Sign Out</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Coupons & Promotions</h1>
+                    <p class="page-subtitle">Manage discounts and offers</p>
+                </div>
+            </div>
+
+            <div class="content-grid">
+                <!-- Coupons Section -->
+                <div class="card">
+                    <div class="card-title">
+                        Coupons
+                        <button class="btn btn-sm btn-primary" onclick="openCouponModal()">+ New</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Discount</th>
+                                    <th>Valid Until</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="couponsBody">
+                                <tr>
+                                    <td colspan="4" style="text-align:center; color: var(--admin-muted);">Loading...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Promotions Section -->
+                <div class="card">
+                    <div class="card-title">
+                        Automatic Promotions
+                        <button class="btn btn-sm btn-primary" onclick="openPromoModal()">+ New</button>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Discount</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="promosBody">
+                                <tr>
+                                    <td colspan="4" style="text-align:center; color: var(--admin-muted);">Loading...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Coupon Modal -->
+    <div id="couponModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div class="card" style="width: 450px; max-width: 90%;">
+            <div class="card-title">
+                Create Coupon
+                <button onclick="closeCouponModal()"
+                    style="background:none; border:none; color:var(--admin-muted); cursor:pointer; font-size:1.25rem;">×</button>
+            </div>
+            <form id="couponForm">
+                <div class="form-group">
+                    <label class="form-label">Coupon Code</label>
+                    <input type="text" name="code" class="form-input" required placeholder="e.g. SAVE20">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Discount Type</label>
+                        <select name="discount_type" class="form-select">
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="fixed">Fixed Amount (₹)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Discount Value</label>
+                        <input type="number" name="discount_value" class="form-input" required step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Valid Until</label>
+                    <input type="date" name="valid_until" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (Optional)</label>
+                    <input type="text" name="description" class="form-input" placeholder="e.g. Summer sale discount">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem;">Create
+                    Coupon</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Promo Modal -->
+    <div id="promoModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div class="card" style="width: 450px; max-width: 90%;">
+            <div class="card-title">
+                Create Promotion
+                <button onclick="closePromoModal()"
+                    style="background:none; border:none; color:var(--admin-muted); cursor:pointer; font-size:1.25rem;">×</button>
+            </div>
+            <form id="promoForm">
+                <div class="form-group">
+                    <label class="form-label">Promotion Name</label>
+                    <input type="text" name="name" class="form-input" required placeholder="e.g. Fiction Friday">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Category</label>
+                    <select name="category" class="form-select" id="promoCategory">
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Discount Percentage</label>
+                    <input type="number" name="discount_percent" class="form-input" required step="0.01"
+                        placeholder="e.g. 15">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem;">Create
+                    Promotion</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                // Load coupons
+                const couponRes = await fetch('/api/coupons');
+                if (couponRes.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                const coupons = await couponRes.json();
+
+                const couponsBody = document.getElementById('couponsBody');
+                couponsBody.innerHTML = '';
+                coupons.forEach(c => {
+                    const discount = c.discount_type === 'percentage' ? `${c.discount_value}%` : `₹${c.discount_value}`;
+                    couponsBody.innerHTML += `
+                        <tr>
+                            <td><strong>${c.code}</strong></td>
+                            <td>${discount}</td>
+                            <td>${c.valid_until || '-'}</td>
+                            <td>
+                                <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteCoupon(${c.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                if (coupons.length === 0) {
+                    couponsBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--admin-muted);">No coupons</td></tr>';
+                }
+
+                // Load promotions
+                const promoRes = await fetch('/api/promotions');
+                const promos = await promoRes.json();
+
+                const promosBody = document.getElementById('promosBody');
+                promosBody.innerHTML = '';
+                promos.forEach(p => {
+                    const statusBadge = p.is_active ? 'badge-success' : 'badge-warning';
+                    const statusText = p.is_active ? 'Active' : 'Inactive';
+                    promosBody.innerHTML += `
+                        <tr>
+                            <td><strong>${p.name}</strong><br><small style="color:var(--admin-muted);">${p.category}</small></td>
+                            <td>${p.discount_percent}%</td>
+                            <td><span class="badge ${statusBadge}">${statusText}</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="togglePromo(${p.id}, ${p.is_active})">${p.is_active ? 'Disable' : 'Enable'}</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                if (promos.length === 0) {
+                    promosBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--admin-muted);">No promotions</td></tr>';
+                }
+
+                // Load categories for promo modal
+                const booksRes = await fetch('/api/books');
+                const books = await booksRes.json();
+                const categories = [...new Set(books.flatMap(b => b.categories || [b.category]))];
+                const catSelect = document.getElementById('promoCategory');
+                catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+            } catch (err) {
+                console.error('Error loading data:', err);
+            }
+        }
+
+        function openCouponModal() { document.getElementById('couponModal').style.display = 'flex'; }
+        function closeCouponModal() { document.getElementById('couponModal').style.display = 'none'; }
+        function openPromoModal() { document.getElementById('promoModal').style.display = 'flex'; }
+        function closePromoModal() { document.getElementById('promoModal').style.display = 'none'; }
+
+        document.getElementById('couponForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            data.discount_value = parseFloat(data.discount_value);
+
+            try {
+                const res = await fetch('/api/coupons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    closeCouponModal();
+                    e.target.reset();
+                    loadData();
+                } else {
+                    const result = await res.json();
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
+
+        document.getElementById('promoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            data.discount_percent = parseFloat(data.discount_percent);
+
+            try {
+                const res = await fetch('/api/promotions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (res.ok) {
+                    closePromoModal();
+                    e.target.reset();
+                    loadData();
+                } else {
+                    const result = await res.json();
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
+
+        async function deleteCoupon(id) {
+            if (!confirm('Delete this coupon?')) return;
+            await fetch(`/api/coupons/${id}`, { method: 'DELETE' });
+            loadData();
+        }
+
+        async function togglePromo(id, currentStatus) {
+            await fetch(`/api/promotions/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_active: !currentStatus })
+            });
+            loadData();
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to sign out?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+
+</html>

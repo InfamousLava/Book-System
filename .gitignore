@@ -1,0 +1,37 @@
+# Dependencies
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test / Dev files
+test_results.txt
+routes.txt
+fix_passwords.py
+test_css.py
+test_mongo.py
+verify_env.py
+schema.sql
+
+# Vercel
+.vercel/
+
+# Uploads (user-generated content)
+static/uploads/

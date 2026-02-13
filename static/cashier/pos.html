@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS - Inventro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/cashier.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="cashier-header">
+        <div class="header-brand">
+            <div class="header-brand-icon">💰</div>
+            <span>Inventro POS</span>
+        </div>
+        <div class="header-actions">
+            <span class="shift-badge" id="shiftBadge">🟢 Shift Active</span>
+            <button class="btn-end-shift" onclick="endShift()">End Shift</button>
+        </div>
+    </header>
+
+    <!-- Main POS Layout -->
+    <div class="pos-layout">
+        <!-- Products Panel -->
+        <div class="products-panel">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="searchInput"
+                    placeholder="Search books by title, author, or barcode...">
+                <button class="btn-scan" onclick="openScanner()">📷 Scan</button>
+            </div>
+            <div class="products-grid" id="productsGrid">
+                <!-- JS populated -->
+            </div>
+        </div>
+
+        <!-- Cart Panel -->
+        <div class="cart-panel">
+            <div class="cart-header">
+                <span class="cart-title">🛒 Cart</span>
+                <button class="btn-clear" onclick="clearCart()">Clear All</button>
+            </div>
+
+            <div class="customer-section">
+                <div class="customer-search">
+                    <input type="text" class="customer-input" id="customerSearch" placeholder="Customer phone...">
+                    <button class="btn-customer" onclick="searchCustomer()">🔍</button>
+                    <button class="btn-customer" onclick="openCustomerModal()">+</button>
+                </div>
+                <div class="customer-selected" id="customerSelected" style="display:none;">
+                    <strong id="customerName"></strong>
+                    <button onclick="clearCustomer()"
+                        style="float:right; background:none; border:none; color:var(--cashier-danger); cursor:pointer;">×</button>
+                </div>
+                <input type="hidden" id="selectedCustomerId">
+            </div>
+
+            <div class="cart-items" id="cartItems">
+                <div class="cart-empty">Cart is empty</div>
+            </div>
+
+            <div class="cart-footer">
+                <div class="cart-totals">
+                    <div class="total-row">
+                        <span>Subtotal</span>
+                        <span id="subtotal">₹0.00</span>
+                    </div>
+                    <div class="total-row discount" id="discountRow" style="display:none;">
+                        <span>Discount</span>
+                        <span id="discountAmount">-₹0.00</span>
+                    </div>
+                    <div class="total-row">
+                        <span>GST (18%)</span>
+                        <span id="taxAmount">₹0.00</span>
+                    </div>
+                    <div class="total-row grand">
+                        <span>Total</span>
+                        <span id="grandTotal">₹0.00</span>
+                    </div>
+                </div>
+
+                <div class="coupon-input">
+                    <input type="text" class="coupon-field" id="couponInput" placeholder="Coupon code">
+                    <button class="btn-coupon" onclick="applyCoupon()">Apply</button>
+                </div>
+
+                <button class="btn-checkout" id="checkoutBtn" onclick="checkout()" disabled>
+                    Complete Sale
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div class="modal" id="successModal">
+        <div class="modal-content">
+            <div class="modal-icon">✅</div>
+            <div class="modal-title">Sale Complete!</div>
+            <div class="modal-message" id="successMessage">Transaction successful</div>
+            <button class="modal-btn modal-btn-primary" onclick="closeSuccessModal()">New Sale</button>
+        </div>
+    </div>
+
+    <script>
+        let books = [];
+        let cart = [];
+        let appliedCouponCode = null;
+        let selectedCustomerId = null;
+
+        // Load products
+        async function loadProducts() {
+            try {
+                const res = await fetch('/api/books');
+                if (res.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                books = await res.json();
+                renderProducts(books);
+            } catch (err) {
+                console.error('Error loading products:', err);
+            }
+        }
+
+        function renderProducts(data) {
+            const grid = document.getElementById('productsGrid');
+            grid.innerHTML = '';
+
+            data.forEach(book => {
+                const outOfStock = book.stock <= 0;
+                const lowStock = book.stock > 0 && book.stock <= 5;
+
+                grid.innerHTML += `
+                    <div class="product-card ${outOfStock ? 'out-of-stock' : ''}" onclick="${outOfStock ? '' : `addToCart(${book.id})`}">
+                        <div class="product-title">${book.title}</div>
+                        <div class="product-author">${book.author}</div>
+                        <div class="product-footer">
+                            <span class="product-price">₹${parseFloat(book.price).toFixed(2)}</span>
+                            <span class="product-stock ${lowStock ? 'low' : ''}">${outOfStock ? 'Out' : book.stock + ' left'}</span>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function addToCart(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if (!book || book.stock <= 0) return;
+
+            const existing = cart.find(c => c.id === bookId);
+            if (existing) {
+                if (existing.quantity >= book.stock) {
+                    alert('Not enough stock!');
+                    return;
+                }
+                existing.quantity++;
+            } else {
+                cart.push({
+                    id: book.id,
+                    title: book.title,
+                    price: book.price,
+                    categories: book.categories || [book.category],
+                    quantity: 1,
+                    stock: book.stock
+                });
+            }
+            renderCart();
+        }
+
+        function updateQty(bookId, change) {
+            const item = cart.find(c => c.id === bookId);
+            if (!item) return;
+
+            const newQty = item.quantity + change;
+            if (newQty <= 0) {
+                cart = cart.filter(c => c.id !== bookId);
+            } else if (newQty > item.stock) {
+                alert('Not enough stock!');
+            } else {
+                item.quantity = newQty;
+            }
+            renderCart();
+        }
+
+        function removeItem(bookId) {
+            cart = cart.filter(c => c.id !== bookId);
+            renderCart();
+        }
+
+        function clearCart() {
+            if (cart.length === 0) return;
+            if (confirm('Clear cart?')) {
+                cart = [];
+                appliedCouponCode = null;
+                renderCart();
+            }
+        }
+
+        async function renderCart() {
+            const container = document.getElementById('cartItems');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            if (cart.length === 0) {
+                container.innerHTML = '<div class="cart-empty">Cart is empty</div>';
+                document.getElementById('subtotal').textContent = '₹0.00';
+                document.getElementById('taxAmount').textContent = '₹0.00';
+                document.getElementById('grandTotal').textContent = '₹0.00';
+                document.getElementById('discountRow').style.display = 'none';
+                checkoutBtn.disabled = true;
+                return;
+            }
+
+            container.innerHTML = cart.map(item => `
+                <div class="cart-item">
+                    <div class="cart-item-info">
+                        <div class="cart-item-title">${item.title}</div>
+                        <div class="cart-item-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                    </div>
+                    <div class="cart-item-controls">
+                        <button class="qty-btn" onclick="updateQty(${item.id}, -1)">−</button>
+                        <span class="qty-display">${item.quantity}</span>
+                        <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
+                        <button class="btn-remove" onclick="removeItem(${item.id})">×</button>
+                    </div>
+                </div>
+            `).join('');
+
+            // Calculate totals
+            try {
+                const res = await fetch('/api/calculate-totals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cart, coupon_code: appliedCouponCode })
+                });
+                const totals = await res.json();
+
+                document.getElementById('subtotal').textContent = '₹' + totals.total_amount.toFixed(2);
+                document.getElementById('taxAmount').textContent = '₹' + (totals.tax_amount || 0).toFixed(2);
+                document.getElementById('grandTotal').textContent = '₹' + totals.final_total.toFixed(2);
+
+                if (totals.discount_amount > 0) {
+                    document.getElementById('discountRow').style.display = 'flex';
+                    document.getElementById('discountAmount').textContent = '-₹' + totals.discount_amount.toFixed(2);
+                } else {
+                    document.getElementById('discountRow').style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error calculating totals:', err);
+            }
+
+            checkoutBtn.disabled = false;
+        }
+
+        async function applyCoupon() {
+            const code = document.getElementById('couponInput').value.trim().toUpperCase();
+            if (!code) return;
+            appliedCouponCode = code;
+            renderCart();
+        }
+
+        async function checkout() {
+            if (cart.length === 0) return;
+
+            try {
+                const totalsRes = await fetch('/api/calculate-totals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cart, coupon_code: appliedCouponCode })
+                });
+                const totals = await totalsRes.json();
+
+                const res = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: cart,
+                        final_total: totals.final_total,
+                        total_amount: totals.total_amount,
+                        discount_amount: totals.discount_amount,
+                        tax_amount: totals.tax_amount,
+                        coupon_code: appliedCouponCode,
+                        customer_id: selectedCustomerId
+                    })
+                });
+
+                const result = await res.json();
+
+                if (res.ok) {
+                    document.getElementById('successMessage').textContent =
+                        `Total: ₹${result.final_total.toFixed(2)}` +
+                        (result.discount_amount > 0 ? ` (Saved ₹${result.discount_amount.toFixed(2)})` : '');
+                    document.getElementById('successModal').style.display = 'flex';
+
+                    cart = [];
+                    appliedCouponCode = null;
+                    selectedCustomerId = null;
+                    document.getElementById('couponInput').value = '';
+                    clearCustomer();
+                    loadProducts();
+                    renderCart();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                console.error('Checkout error:', err);
+                alert('Checkout failed');
+            }
+        }
+
+        function closeSuccessModal() {
+            document.getElementById('successModal').style.display = 'none';
+        }
+
+        // Search
+        document.getElementById('searchInput').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const filtered = books.filter(b =>
+                b.title.toLowerCase().includes(query) ||
+                b.author.toLowerCase().includes(query) ||
+                (b.barcode && b.barcode.includes(query))
+            );
+            renderProducts(filtered);
+        });
+
+        // Customer functions
+        async function searchCustomer() {
+            const phone = document.getElementById('customerSearch').value.trim();
+            if (!phone) return;
+
+            try {
+                const res = await fetch(`/api/customers?phone=${phone}`);
+                const customers = await res.json();
+
+                if (customers.length > 0) {
+                    selectCustomer(customers[0]);
+                } else {
+                    alert('Customer not found');
+                }
+            } catch (err) {
+                console.error('Error searching customer:', err);
+            }
+        }
+
+        function selectCustomer(cust) {
+            selectedCustomerId = cust.id;
+            document.getElementById('selectedCustomerId').value = cust.id;
+            document.getElementById('customerName').textContent = cust.name + ' (' + cust.phone + ')';
+            document.getElementById('customerSelected').style.display = 'block';
+            document.getElementById('customerSearch').value = '';
+        }
+
+        function clearCustomer() {
+            selectedCustomerId = null;
+            document.getElementById('selectedCustomerId').value = '';
+            document.getElementById('customerSelected').style.display = 'none';
+        }
+
+        function openCustomerModal() {
+            const name = prompt('Customer Name:');
+            if (!name) return;
+            const phone = prompt('Phone Number:');
+            if (!phone) return;
+
+            fetch('/api/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, phone })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.id) {
+                        selectCustomer({ id: data.id, name, phone });
+                    }
+                });
+        }
+
+        async function endShift() {
+            if (!confirm('End your shift?')) return;
+
+            try {
+                const res = await fetch('/api/shift/end', { method: 'POST' });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(`Shift ended! Total sales: ₹${data.total_sales?.toFixed(2) || 0}`);
+                    window.location.href = '/login.html';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                console.error('Error ending shift:', err);
+                alert('Failed to end shift');
+            }
+        }
+
+        // Barcode Scanner - use reusable module
+        function openScanner() {
+            // Load scanner module if not loaded
+            if (typeof openBarcodeScanner === 'undefined') {
+                const script = document.createElement('script');
+                script.src = '/js/barcode-scanner.js';
+                script.onload = () => {
+                    openBarcodeScanner(handleBarcodeScan);
+                };
+                document.head.appendChild(script);
+            } else {
+                openBarcodeScanner(handleBarcodeScan);
+            }
+        }
+
+        function handleBarcodeScan(barcode) {
+            // Search for book with barcode
+            const book = books.find(b => b.barcode === barcode);
+            if (book) {
+                addToCart(book.id);
+            } else {
+                alert('Book not found for barcode: ' + barcode);
+                // Put barcode in search
+                document.getElementById('searchInput').value = barcode;
+                document.getElementById('searchInput').dispatchEvent(new Event('input'));
+            }
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', loadProducts);
+    </script>
+</body>
+
+</html>

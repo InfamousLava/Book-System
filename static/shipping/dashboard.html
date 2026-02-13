@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Dashboard - Inventro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+    <style>
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-confirmed {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-packed {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .status-shipped {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-in_transit {
+            background: #cffafe;
+            color: #0e7490;
+        }
+
+        .status-out_for_delivery {
+            background: #fce7f3;
+            color: #9d174d;
+        }
+
+        .status-delivered {
+            background: #10b981;
+            color: white;
+        }
+
+        .status-cancelled {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .order-card {
+            background: var(--admin-card);
+            border-radius: 12px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--admin-border);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .order-id {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .order-date {
+            color: var(--admin-muted);
+            font-size: 0.85rem;
+        }
+
+        .order-customer {
+            margin-bottom: 0.75rem;
+        }
+
+        .order-address {
+            color: var(--admin-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .order-total {
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--admin-primary);
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--admin-border);
+            background: var(--admin-card);
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+        }
+
+        .filter-tab:hover {
+            background: var(--admin-hover);
+        }
+
+        .filter-tab.active {
+            background: var(--admin-primary);
+            color: white;
+            border-color: var(--admin-primary);
+        }
+
+        .filter-tab .count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.1rem 0.5rem;
+            border-radius: 10px;
+            margin-left: 0.5rem;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="brand">📦 Shipping</div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="/shipping/dashboard.html" class="nav-item active">
+                <span class="nav-icon">📋</span>
+                <span>Orders</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <button class="btn-logout-refined" onclick="logout()">
+                <span style="font-size: 1.1em; vertical-align: middle; margin-right: 6px;">⎋</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <header class="main-header">
+            <h1>Order Management</h1>
+            <div class="header-actions">
+                <span id="userInfo" style="color: var(--admin-muted);"></span>
+            </div>
+        </header>
+
+        <!-- Stats -->
+        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #fef3c7;">📋</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="pendingCount">0</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #dbeafe;">📦</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="packedCount">0</div>
+                    <div class="stat-label">Packed</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #d1fae5;">🚚</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="shippedCount">0</div>
+                    <div class="stat-label">In Transit</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #10b981;">✅</div>
+                <div class="stat-info">
+                    <div class="stat-value" id="deliveredCount">0</div>
+                    <div class="stat-label">Delivered</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Tabs -->
+        <div class="filter-tabs" id="filterTabs">
+            <button class="filter-tab active" data-status="">All</button>
+            <button class="filter-tab" data-status="pending">Pending</button>
+            <button class="filter-tab" data-status="confirmed">Confirmed</button>
+            <button class="filter-tab" data-status="packed">Packed</button>
+            <button class="filter-tab" data-status="shipped">Shipped</button>
+            <button class="filter-tab" data-status="in_transit">In Transit</button>
+            <button class="filter-tab" data-status="out_for_delivery">Out for Delivery</button>
+            <button class="filter-tab" data-status="delivered">Delivered</button>
+        </div>
+
+        <!-- Orders List -->
+        <div id="ordersList">
+            <p style="color: var(--admin-muted);">Loading orders...</p>
+        </div>
+    </main>
+
+    <!-- Status Update Modal -->
+    <div class="modal" id="statusModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 id="modalTitle">Update Order Status</h3>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <form id="statusForm">
+                <input type="hidden" id="orderId">
+                <div class="form-group">
+                    <label class="form-label">New Status</label>
+                    <select class="form-input" id="newStatus" required>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="packed">Packed</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="in_transit">In Transit</option>
+                        <option value="out_for_delivery">Out for Delivery</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tracking Number</label>
+                    <input type="text" class="form-input" id="trackingNumber" placeholder="Auto-generated on Ship"
+                        disabled style="background: var(--admin-border); cursor: not-allowed;">
+                    <small id="trackingHelp" style="color: var(--admin-muted); font-size: 0.8rem; display: none;">System
+                        will generate internal tracking ID</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes (optional)</label>
+                    <textarea class="form-input" id="orderNotes" rows="3" placeholder="Add notes..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Update Status</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- View Details Modal -->
+    <div class="modal" id="detailsModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>Order Details <span id="detailOrderId"
+                        style="color: var(--admin-muted); font-weight: normal;"></span></h3>
+                <button class="modal-close" onclick="closeDetailsModal()">×</button>
+            </div>
+            <div id="orderDetailsContent">
+                <!-- Populated by JS -->
+            </div>
+            <div style="margin-top: 1.5rem; text-align: right;">
+                <button class="btn" onclick="closeDetailsModal()"
+                    style="border: 1px solid var(--admin-border);">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let orders = [];
+        let currentFilter = '';
+
+        async function init() {
+            // Check auth
+            const res = await fetch('/api/orders/stats');
+            if (res.status === 401) {
+                window.location.href = '/login.html';
+                return;
+            }
+            if (res.status === 403) {
+                alert('Access denied. Shipping Manager role required.');
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // Show user info
+            document.getElementById('userInfo').textContent = `Shipping Manager`;
+
+            loadStats();
+            loadOrders();
+
+            // Filter tab clicks
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentFilter = tab.dataset.status;
+                    loadOrders();
+                });
+            });
+        }
+
+        async function loadStats() {
+            const res = await fetch('/api/orders/stats');
+            const stats = await res.json();
+
+            document.getElementById('pendingCount').textContent = stats.pending || 0;
+            document.getElementById('packedCount').textContent = stats.packed || 0;
+            document.getElementById('shippedCount').textContent = (stats.shipped || 0) + (stats.in_transit || 0) + (stats.out_for_delivery || 0);
+            document.getElementById('deliveredCount').textContent = stats.delivered || 0;
+        }
+
+        async function loadOrders() {
+            const url = currentFilter ? `/api/orders?status=${currentFilter}` : '/api/orders';
+            const res = await fetch(url);
+            orders = await res.json();
+            renderOrders();
+        }
+
+        function renderOrders() {
+            const container = document.getElementById('ordersList');
+
+            if (orders.length === 0) {
+                container.innerHTML = '<p style="color: var(--admin-muted); text-align: center; padding: 2rem;">No orders found.</p>';
+                return;
+            }
+
+            container.innerHTML = orders.map(order => {
+                const date = new Date(order.order_date).toLocaleString('en-IN');
+                return `
+                    <div class="order-card">
+                        <div class="order-header">
+                            <div>
+                                <span class="order-id">Order #${order.id}</span>
+                                <span class="order-date">${date}</span>
+                            </div>
+                            <span class="status-badge status-${order.status}">${order.status.replace('_', ' ')}</span>
+                        </div>
+                        <div class="order-customer">
+                            <strong>${order.customer_name || 'Guest'}</strong>
+                            ${order.customer_phone ? `<span style="color: var(--admin-muted);"> • ${order.customer_phone}</span>` : ''}
+                            ${order.customer_email ? `<br><small style="color: var(--admin-muted);">${order.customer_email}</small>` : ''}
+                        </div>
+                        <div class="order-address">📍 ${order.shipping_address || 'No address'}</div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span class="order-total">₹${parseFloat(order.total_amount).toFixed(2)}</span>
+                            ${order.tracking_number ? `<span style="color: var(--admin-muted); font-size: 0.85rem;">Tracking: ${order.tracking_number}</span>` : ''}
+                        </div>
+                        <div class="order-actions">
+                            <button class="btn btn-sm btn-primary" onclick="openStatusModal(${order.id}, '${order.status}', '${order.tracking_number || ''}')">Update Status</button>
+                            <button class="btn btn-sm btn-secondary" onclick="viewOrder(${order.id})">View Details</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openStatusModal(id, currentStatus, tracking) {
+            document.getElementById('orderId').value = id;
+            document.getElementById('newStatus').value = currentStatus;
+            document.getElementById('trackingNumber').value = tracking;
+            document.getElementById('orderNotes').value = '';
+            document.getElementById('statusModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('statusModal').style.display = 'none';
+        }
+
+        document.getElementById('statusForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('orderId').value;
+            const status = document.getElementById('newStatus').value;
+            const tracking = document.getElementById('trackingNumber').value;
+            const notes = document.getElementById('orderNotes').value;
+
+            const res = await fetch(`/api/orders/${id}/status`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status, tracking_number: tracking, notes })
+            });
+
+            if (res.ok) {
+                closeModal();
+                loadOrders();
+                loadStats();
+            } else {
+                const err = await res.json();
+                alert(err.error || 'Failed to update status');
+            }
+        });
+
+        // Add listener for status change to toggle tracking requirement
+        document.getElementById('newStatus').addEventListener('change', function () {
+            const status = this.value;
+            const helpText = document.getElementById('trackingHelp');
+            const trackingInput = document.getElementById('trackingNumber');
+            const shippingStatuses = ['packed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered'];
+
+            if (shippingStatuses.includes(status)) {
+                helpText.style.display = 'block';
+                helpText.textContent = 'System will generate internal tracking ID';
+                trackingInput.placeholder = 'Auto-generated on Ship';
+            } else {
+                helpText.style.display = 'none';
+                trackingInput.placeholder = ''; // Clear placeholder if not a shipping status
+            }
+        });
+
+        async function viewOrder(id) {
+            const res = await fetch(`/api/orders/${id}`);
+            const order = await res.json();
+
+            const date = new Date(order.order_date).toLocaleString('en-IN');
+
+            const itemsHtml = order.items.map(item => `
+                <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--admin-border);">
+                    <div>
+                        <div style="font-weight: 500;">${item.title}</div>
+                        <div style="font-size: 0.85rem; color: var(--admin-muted);">${item.author}</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div>${item.quantity} x ₹${parseFloat(item.price_at_order).toFixed(2)}</div>
+                        <div style="font-weight: 500;">₹${(item.quantity * item.price_at_order).toFixed(2)}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            const html = `
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div>
+                        <div style="text-transform: uppercase; font-size: 0.75rem; color: var(--admin-muted); letter-spacing: 0.5px; margin-bottom: 0.25rem;">Customer</div>
+                        <div style="font-weight: 600;">${order.customer_name}</div>
+                        <div style="font-size: 0.9rem;">${order.customer_email || '-'}</div>
+                        <div style="font-size: 0.9rem;">${order.customer_phone || '-'}</div>
+                    </div>
+                    <div>
+                        <div style="text-transform: uppercase; font-size: 0.75rem; color: var(--admin-muted); letter-spacing: 0.5px; margin-bottom: 0.25rem;">Shipping To</div>
+                        <div style="font-size: 0.9rem; line-height: 1.4;">${order.shipping_address}</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="text-transform: uppercase; font-size: 0.75rem; color: var(--admin-muted); letter-spacing: 0.5px; margin-bottom: 0.5rem;">Order Items</div>
+                    <div style="background: var(--admin-bg); border-radius: 8px; padding: 0.5rem 1rem;">
+                        ${itemsHtml}
+                        <div style="display: flex; justify-content: space-between; padding-top: 0.75rem; margin-top: 0.25rem; font-weight: 700; font-size: 1.1rem;">
+                            <span>Total Amount</span>
+                            <span>₹${parseFloat(order.total_amount).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: var(--admin-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--admin-border);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--admin-muted);">Status</span>
+                        <span class="status-badge status-${order.status}">${order.status.replace('_', ' ')}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                        <span style="color: var(--admin-muted);">Ordered On</span>
+                        <span>${date}</span>
+                    </div>
+                     <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--admin-muted);">Tracking #</span>
+                        <span style="font-family: monospace;">${order.tracking_number || 'Pending'}</span>
+                    </div>
+                    ${order.notes ? `<div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--admin-border); font-size: 0.9rem;"><strong>Notes:</strong><br>${order.notes}</div>` : ''}
+                </div>
+            `;
+
+            document.getElementById('detailOrderId').textContent = '#' + id;
+            document.getElementById('orderDetailsContent').innerHTML = html;
+            document.getElementById('detailsModal').style.display = 'flex';
+        }
+
+        function closeDetailsModal() {
+            document.getElementById('detailsModal').style.display = 'none';
+        }
+
+        function logout() {
+            fetch('/api/logout', { method: 'POST' }).then(() => {
+                window.location.href = '/login.html';
+            });
+        }
+
+        // Init
+        init();
+    </script>
+</body>
+
+</html>

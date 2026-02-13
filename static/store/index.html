@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventro Bookstore - Shop Online</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/store.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="store-header">
+        <div class="header-inner">
+            <a href="/store/" class="header-brand">📚 Inventro</a>
+
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+
+            <nav class="header-nav" id="mainNav">
+                <a href="/store/" class="nav-link active">Home</a>
+                <a href="/store/catalog.html" class="nav-link">All Books</a>
+                <div class="user-menu" id="authSection">
+                    <a href="/customer/login.html" class="btn-login-nav">Login / Register</a>
+                </div>
+                <button class="cart-btn" onclick="toggleCart()" aria-label="Cart">
+                    🛒
+                    <span class="cart-count" id="cartCount">0</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1 class="hero-title">Discover Your Next Great Read</h1>
+        <p class="hero-subtitle">Thousands of books at your fingertips</p>
+        <div class="hero-search">
+            <input type="text" class="hero-input" id="heroSearch" placeholder="Search by title or author...">
+            <button class="hero-btn" onclick="searchBooks()">Search</button>
+        </div>
+    </section>
+
+    <!-- Featured Books -->
+    <div class="container">
+        <h2 class="section-title">Featured Books</h2>
+        <div class="products-grid" id="featuredGrid">
+            <!-- JS populated -->
+        </div>
+    </div>
+
+    <!-- Cart Drawer -->
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+    <div class="cart-drawer" id="cartDrawer">
+        <div class="cart-header">
+            <span class="cart-title">🛒 Your Cart</span>
+            <button class="cart-close" onclick="toggleCart()">×</button>
+        </div>
+        <div class="cart-items" id="cartItems">
+            <div class="cart-empty">Your cart is empty</div>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total</span>
+                <span id="cartTotal">₹0.00</span>
+            </div>
+            <button class="btn-checkout" onclick="proceedToCheckout()">Proceed to Checkout</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="store-footer">
+        <div class="footer-inner">
+            <div class="footer-brand">Inventro Bookstore</div>
+            <p class="footer-text">Your destination for quality books</p>
+        </div>
+    </footer>
+
+    <script>
+        let books = [];
+        let cart = JSON.parse(localStorage.getItem('storeCart') || '[]');
+
+        let categories = []; // If needed for filter
+
+        async function checkUser() {
+            try {
+                const res = await fetch('/api/current_user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const container = document.getElementById('authSection');
+
+                    if (user.role === 'customer') {
+                        const initials = (user.email[0] || 'U').toUpperCase();
+                        container.innerHTML = `
+                            <div class="user-trigger">
+                                <div class="user-avatar-small">${initials}</div>
+                                <span>Account ▾</span>
+                            </div>
+                            <div class="dropdown-menu">
+                                <a href="/customer/dashboard.html" class="dropdown-item">My Dashboard</a>
+                                <a href="/customer/dashboard.html#orders" class="dropdown-item">My Orders</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" onclick="logout()" class="dropdown-item" style="color:red;">Sign Out</a>
+                            </div>
+                        `;
+                    } else {
+                        // Staff view
+                        container.innerHTML = `
+                            <div class="user-trigger">
+                                <span>Staff (${user.role})</span>
+                            </div>
+                            <div class="dropdown-menu">
+                                <a href="/${user.role === 'admin' ? 'admin' : user.role}/dashboard.html" class="dropdown-item">Staff Dashboard</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" onclick="logout()" class="dropdown-item">Sign Out</a>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (e) {
+                console.error("Auth check failed", e);
+            }
+        }
+
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.reload();
+        }
+
+        async function loadBooks() {
+            checkUser();
+            try {
+                const res = await fetch('/api/store/books');
+                books = await res.json();
+                renderFeatured();
+                updateCartUI();
+            } catch (err) {
+                console.error('Error loading books:', err);
+            }
+        }
+
+        function renderFeatured() {
+            const grid = document.getElementById('featuredGrid');
+            grid.innerHTML = '';
+
+            // Show first 8 books as featured
+            const featured = books.slice(0, 8);
+
+            featured.forEach(book => {
+                const cats = (book.categories || [book.category]).join(', ');
+                const outOfStock = book.stock <= 0;
+
+                grid.innerHTML += `
+                    <div class="product-card">
+                        <a href="/store/product.html?id=${book.id}" style="text-decoration:none; color:inherit;">
+                            <div class="product-image">${book.image_url ? `<img src="${book.image_url}" alt="${book.title}" style="width:100%;height:100%;object-fit:cover;">` : '📖'}</div>
+                        </a>
+                        <div class="product-info">
+                            <div class="product-category">${cats}</div>
+                            <a href="/store/product.html?id=${book.id}" style="text-decoration:none; color:inherit;">
+                                <div class="product-title">${book.title}</div>
+                            </a>
+                            <div class="product-author">by ${book.author}</div>
+                            <div class="product-rating" id="rating-${book.id}">
+                                <span style="color: #888; font-size: 0.8rem;">Loading rating...</span>
+                            </div>
+                            <div class="product-footer">
+                                <span class="product-price">₹${parseFloat(book.price).toFixed(2)}</span>
+                                <button class="btn-add" ${outOfStock ? 'disabled' : ''} onclick="addToCart(${book.id})">
+                                    ${outOfStock ? 'Out of Stock' : 'Add to Cart'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            // Fetch ratings
+            featured.forEach(book => fetchRating(book.id, book.barcode, book.title));
+        }
+
+        // Fetch rating from Google Books API
+        async function fetchRating(bookId, isbn, title) {
+            const el = document.getElementById(`rating-${bookId}`);
+            if (!el) return;
+
+            try {
+                const query = isbn ? `isbn:${isbn}` : `intitle:${encodeURIComponent(title)}`;
+                const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`);
+                const data = await res.json();
+
+                if (data.items && data.items[0]?.volumeInfo?.averageRating) {
+                    const rating = data.items[0].volumeInfo.averageRating;
+                    const count = data.items[0].volumeInfo.ratingsCount || 0;
+                    el.innerHTML = `<span style="color: #f59e0b;">★</span> ${rating.toFixed(1)} <span style="color: #888; font-size: 0.75rem;">(${count} reviews)</span>`;
+                } else {
+                    el.innerHTML = '<span style="color: #888; font-size: 0.8rem;">No rating</span>';
+                }
+            } catch (err) {
+                el.innerHTML = '<span style="color: #888; font-size: 0.8rem;">-</span>';
+            }
+        }
+
+        function addToCart(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if (!book) return;
+
+            const existing = cart.find(c => c.id === bookId);
+            if (existing) {
+                existing.quantity++;
+            } else {
+                cart.push({
+                    id: book.id,
+                    title: book.title,
+                    price: book.price,
+                    quantity: 1
+                });
+            }
+
+            saveCart();
+            updateCartUI();
+
+            // Open cart drawer
+            document.getElementById('cartDrawer').classList.add('open');
+            document.getElementById('cartOverlay').classList.add('open');
+        }
+
+        function updateQty(bookId, change) {
+            const item = cart.find(c => c.id === bookId);
+            if (!item) return;
+
+            item.quantity += change;
+            if (item.quantity <= 0) {
+                cart = cart.filter(c => c.id !== bookId);
+            }
+
+            saveCart();
+            updateCartUI();
+        }
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            document.getElementById('mainNav').classList.toggle('active');
+        }
+
+        // Shared Auth & Cart Logic
+        function saveCart() {
+            localStorage.setItem('storeCart', JSON.stringify(cart));
+        }
+
+        function updateCartUI() {
+            const countEl = document.getElementById('cartCount');
+            const itemsEl = document.getElementById('cartItems');
+            const totalEl = document.getElementById('cartTotal');
+
+            const totalItems = cart.reduce((sum, c) => sum + c.quantity, 0);
+            countEl.textContent = totalItems;
+
+            if (cart.length === 0) {
+                itemsEl.innerHTML = '<div class="cart-empty">Your cart is empty</div>';
+                totalEl.textContent = '₹0.00';
+                return;
+            }
+
+            let total = 0;
+            itemsEl.innerHTML = cart.map(item => {
+                const subtotal = item.price * item.quantity;
+                total += subtotal;
+                return `
+                    <div class="cart-item">
+                        <div class="cart-item-image">📖</div>
+                        <div class="cart-item-info">
+                            <div class="cart-item-title">${item.title}</div>
+                            <div class="cart-item-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                            <div class="cart-item-qty">
+                                <button class="qty-btn" onclick="updateQty(${item.id}, -1)">−</button>
+                                <span>${item.quantity}</span>
+                                <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            totalEl.textContent = '₹' + total.toFixed(2);
+        }
+
+        function toggleCart() {
+            document.getElementById('cartDrawer').classList.toggle('open');
+            document.getElementById('cartOverlay').classList.toggle('open');
+        }
+
+        function searchBooks() {
+            const query = document.getElementById('heroSearch').value;
+            window.location.href = `/store/catalog.html?search=${encodeURIComponent(query)}`;
+        }
+
+        function proceedToCheckout() {
+            if (cart.length === 0) {
+                alert('Your cart is empty!');
+                return;
+            }
+            window.location.href = '/store/checkout.html';
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', loadBooks);
+
+        // Enter key for search
+        document.getElementById('heroSearch').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchBooks();
+        });
+    </script>
+</body>
+
+</html>

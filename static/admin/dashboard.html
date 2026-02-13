@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Inventro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-icon">📊</div>
+                    <span>Inventro Admin</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a href="/admin/dashboard.html" class="nav-item active">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/admin/sales.html" class="nav-item">
+                    <span class="nav-icon">💰</span> Sales History
+                </a>
+                <a href="/admin/inventory.html" class="nav-item">
+                    <span class="nav-icon">📦</span> Inventory
+                </a>
+
+                <div class="nav-section">Management</div>
+                <a href="/admin/staff.html" class="nav-item">
+                    <span class="nav-icon">👥</span> Staff & Users
+                </a>
+                <a href="/admin/settings.html" class="nav-item">
+                    <span class="nav-icon">🎟️</span> Coupons & Promos
+                </a>
+
+                <div class="nav-section">Store</div>
+                <a href="/admin/orders.html" class="nav-item">
+                    <span class="nav-icon">🛒</span> Online Orders
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Sign Out</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Dashboard</h1>
+                    <p class="page-subtitle" id="currentDate"></p>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">💰</div>
+                    <div class="stat-value" id="todayRevenue">₹0</div>
+                    <div class="stat-label">Today's Revenue</div>
+                    <div class="stat-change positive" id="revenueChange">↑ 0% from yesterday</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">📦</div>
+                    <div class="stat-value" id="todayOrders">0</div>
+                    <div class="stat-label">Orders Today</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">⚠️</div>
+                    <div class="stat-value" id="lowStock">0</div>
+                    <div class="stat-label">Low Stock Items</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">👥</div>
+                    <div class="stat-value" id="activeStaff">0</div>
+                    <div class="stat-label">Active Staff</div>
+                </div>
+            </div>
+
+            <!-- Charts and Tables -->
+            <div class="content-grid">
+                <div class="card">
+                    <div class="card-title">
+                        Revenue Trend (Last 7 Days)
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Top Selling Books</div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Sold</th>
+                                </tr>
+                            </thead>
+                            <tbody id="topProductsBody">
+                                <!-- JS populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Sales -->
+            <div class="card">
+                <div class="card-title">
+                    Recent Orders
+                    <a href="/admin/sales.html" class="btn btn-sm btn-primary">View All</a>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Time</th>
+                                <th>Amount</th>
+                                <th>Payment</th>
+                                <th>Items</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentOrdersBody">
+                            <!-- JS populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Set current date
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        // Load dashboard data
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const res = await fetch('/api/stats');
+                if (res.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                const data = await res.json();
+
+                // Update user info
+                document.getElementById('userName').textContent = data.user.username;
+                document.getElementById('userAvatar').textContent = data.user.username.charAt(0).toUpperCase();
+
+                // Update stats
+                if (data.cards && data.cards.length > 0) {
+                    document.getElementById('todayRevenue').textContent = data.cards[0]?.value || '₹0';
+                    document.getElementById('lowStock').textContent = data.cards[1]?.value || '0';
+                    document.getElementById('todayOrders').textContent = data.cards[2]?.value || '0';
+                }
+
+                // Active staff count
+                if (data.active_shifts) {
+                    document.getElementById('activeStaff').textContent = data.active_shifts.length;
+                }
+
+                // Revenue Chart
+                const ctx = document.getElementById('revenueChart').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.graph?.labels || [],
+                        datasets: [{
+                            label: 'Revenue',
+                            data: data.graph?.data || [],
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#94a3b8' }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#94a3b8' }
+                            }
+                        }
+                    }
+                });
+
+                // Top Products
+                const topBody = document.getElementById('topProductsBody');
+                (data.top_products || []).forEach(p => {
+                    topBody.innerHTML += `
+                        <tr>
+                            <td>${p.title}</td>
+                            <td><span class="badge badge-info">${p.qty}</span></td>
+                        </tr>
+                    `;
+                });
+
+                // Recent Orders
+                const ordersBody = document.getElementById('recentOrdersBody');
+                (data.recent_sales || []).forEach(s => {
+                    ordersBody.innerHTML += `
+                        <tr>
+                            <td><strong>#${s.id}</strong></td>
+                            <td>${s.time?.split(' ')[1] || s.time}</td>
+                            <td>₹${parseFloat(s.total_amount).toFixed(2)}</td>
+                            <td><span class="badge badge-success">${s.payment_method || 'Cash'}</span></td>
+                            <td>${s.items_count} items</td>
+                            <td><span class="badge badge-success">Completed</span></td>
+                        </tr>
+                    `;
+                });
+
+            } catch (err) {
+                console.error('Error loading dashboard:', err);
+            }
+        });
+
+        async function logout() {
+            if (confirm('Are you sure you want to sign out?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        }
+    </script>
+</body>
+
+</html>

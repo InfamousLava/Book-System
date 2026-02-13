@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Management - Inventro Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-icon">📊</div>
+                    <span>Inventro Admin</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/admin/sales.html" class="nav-item">
+                    <span class="nav-icon">💰</span> Sales History
+                </a>
+                <a href="/admin/inventory.html" class="nav-item">
+                    <span class="nav-icon">📦</span> Inventory
+                </a>
+
+                <div class="nav-section">Management</div>
+                <a href="/admin/staff.html" class="nav-item active">
+                    <span class="nav-icon">👥</span> Staff & Users
+                </a>
+                <a href="/admin/settings.html" class="nav-item">
+                    <span class="nav-icon">🎟️</span> Coupons & Promos
+                </a>
+
+                <div class="nav-section">Store</div>
+                <a href="/admin/orders.html" class="nav-item">
+                    <span class="nav-icon">🛒</span> Online Orders
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar">A</div>
+                    <div class="user-details">
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Sign Out</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Staff & Users</h1>
+                    <p class="page-subtitle">Manage team members and permissions</p>
+                </div>
+                <button class="btn btn-primary" onclick="openModal()">+ Add User</button>
+            </div>
+
+            <!-- Active Shifts -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div class="card-title">🟢 Currently Active</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Staff Member</th>
+                                <th>Started At</th>
+                                <th>Current Sales</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activeShiftsBody">
+                            <tr>
+                                <td colspan="4" style="text-align:center; color: var(--admin-muted);">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- All Users -->
+            <div class="card">
+                <div class="card-title">All Users</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Total Shifts</th>
+                                <th>Total Revenue</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; color: var(--admin-muted);">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div class="card" style="width: 400px; max-width: 90%;">
+            <div class="card-title">
+                Create New User
+                <button onclick="closeModal()"
+                    style="background:none; border:none; color:var(--admin-muted); cursor:pointer; font-size:1.25rem;">×</button>
+            </div>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" name="password" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Role</label>
+                    <select name="role" class="form-select">
+                        <option value="cashier">Cashier</option>
+                        <option value="inventory_manager">Inventory Manager</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width:100%; margin-top:1rem;">Create User</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                // Load users
+                const usersRes = await fetch('/api/users');
+                if (usersRes.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                const users = await usersRes.json();
+
+                // Load stats for cashiers
+                const statsRes = await fetch('/api/admin/cashiers');
+                const stats = await statsRes.json();
+
+                // Render Active Shifts
+                const activeBody = document.getElementById('activeShiftsBody');
+                activeBody.innerHTML = '';
+                if (stats.active && stats.active.length > 0) {
+                    stats.active.forEach(s => {
+                        const startTime = new Date(s.start_time).toLocaleTimeString();
+                        activeBody.innerHTML += `
+                            <tr>
+                                <td><strong>${s.username || s.email}</strong></td>
+                                <td>${startTime}</td>
+                                <td>₹${parseFloat(s.current_sales || 0).toFixed(2)}</td>
+                                <td><span class="badge badge-success">Active</span></td>
+                            </tr>
+                        `;
+                    });
+                } else {
+                    activeBody.innerHTML = '<tr><td colspan="4" style="text-align:center; color: var(--admin-muted);">No active shifts</td></tr>';
+                }
+
+                // Create stats lookup
+                const statsLookup = {};
+                (stats.stats || []).forEach(s => { statsLookup[s.username || s.email] = s; });
+
+                // Render All Users
+                const usersBody = document.getElementById('usersBody');
+                usersBody.innerHTML = '';
+                users.forEach(u => {
+                    const userStats = statsLookup[u.username || u.email] || { shifts_count: 0, total_revenue: 0 };
+                    const roleBadge = {
+                        'admin': 'badge-info',
+                        'cashier': 'badge-success',
+                        'inventory_manager': 'badge-warning'
+                    }[u.role] || 'badge-info';
+
+                    usersBody.innerHTML += `
+                        <tr>
+                            <td>${u.id}</td>
+                            <td><strong>${u.email}</strong></td>
+                            <td><span class="badge ${roleBadge}">${u.role.replace('_', ' ')}</span></td>
+                            <td>${userStats.shifts_count}</td>
+                            <td>₹${parseFloat(userStats.total_revenue || 0).toFixed(2)}</td>
+                            <td>
+                                <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteUser(${u.id})">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+            } catch (err) {
+                console.error('Error loading data:', err);
+            }
+        }
+
+        function openModal() {
+            document.getElementById('addUserModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('addUserModal').style.display = 'none';
+        }
+
+        document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+
+                if (res.ok) {
+                    alert('User created successfully!');
+                    closeModal();
+                    e.target.reset();
+                    loadData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
+
+        async function deleteUser(id) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+
+            try {
+                const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+
+                if (res.ok) {
+                    loadData();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to sign out?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+
+</html>

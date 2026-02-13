@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - Inventro Bookstore</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/store.css">
+    <style>
+        .checkout-layout {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .checkout-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .checkout-card {
+            background: var(--store-card);
+            border: 1px solid var(--store-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+
+        .checkout-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--store-border);
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--store-accent);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--store-border);
+        }
+
+        .order-summary {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid var(--store-border);
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-row.total {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--store-border);
+        }
+
+        .payment-options {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .payment-option {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            border: 1px solid var(--store-border);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .payment-option:has(input:checked) {
+            border-color: var(--store-accent);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .success-message {
+            text-align: center;
+            padding: 3rem;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .success-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="store-header">
+        <div class="header-inner">
+            <a href="/store/" class="header-brand">📚 Inventro</a>
+            <nav class="header-nav">
+                <a href="/store/" class="nav-link">Home</a>
+                <a href="/store/catalog.html" class="nav-link">All Books</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container" id="checkoutContent">
+        <h1 class="section-title">Checkout</h1>
+
+        <div class="checkout-layout">
+            <!-- Customer Details -->
+            <div>
+                <div class="checkout-card">
+                    <div class="checkout-title">Shipping Details</div>
+                    <form id="checkoutForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Full Name</label>
+                                <input type="text" class="form-input" name="name" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Phone</label>
+                                <input type="tel" class="form-input" name="phone" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-input" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Address</label>
+                            <input type="text" class="form-input" name="address" required placeholder="Street address">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">City</label>
+                                <input type="text" class="form-input" name="city" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Pincode</label>
+                                <input type="text" class="form-input" name="pincode" required>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="checkout-card" style="margin-top: 1.5rem;">
+                    <div class="checkout-title">Payment Method</div>
+                    <div class="payment-options">
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="cod" checked>
+                            <span>💵 Cash on Delivery</span>
+                        </label>
+                        <label class="payment-option">
+                            <input type="radio" name="payment" value="upi">
+                            <span>📱 UPI Payment</span>
+                        </label>
+                    </div>
+                    <button class="btn-checkout" onclick="placeOrder()">Place Order</button>
+                </div>
+            </div>
+
+            <!-- Order Summary -->
+            <div>
+                <div class="checkout-card">
+                    <div class="checkout-title">Order Summary</div>
+                    <div id="orderItems">
+                        <!-- JS populated -->
+                    </div>
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span id="subtotal">₹0.00</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Shipping</span>
+                            <span>FREE</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span id="total">₹0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message (hidden by default) -->
+    <div class="container" id="successContent" style="display: none;">
+        <div class="checkout-card" style="max-width: 500px; margin: 3rem auto;">
+            <div class="success-message">
+                <div class="success-icon">✅</div>
+                <div class="success-title">Order Placed Successfully!</div>
+                <p style="color: var(--store-muted); margin-bottom: 1.5rem;">
+                    Thank you for your order. You will receive a confirmation email shortly.
+                </p>
+                <p style="margin-bottom: 2rem;"><strong>Order ID: <span id="orderId"></span></strong></p>
+                <a href="/store/" class="btn-checkout" style="display: inline-block; text-decoration: none;">Continue
+                    Shopping</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cart = JSON.parse(localStorage.getItem('storeCart') || '[]');
+
+        function loadOrderSummary() {
+            if (cart.length === 0) {
+                window.location.href = '/store/';
+                return;
+            }
+
+            const itemsEl = document.getElementById('orderItems');
+            let total = 0;
+
+            itemsEl.innerHTML = cart.map(item => {
+                const subtotal = item.price * item.quantity;
+                total += subtotal;
+                return `
+                    <div class="order-item">
+                        <span>${item.title} × ${item.quantity}</span>
+                        <span>₹${subtotal.toFixed(2)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('subtotal').textContent = '₹' + total.toFixed(2);
+            document.getElementById('total').textContent = '₹' + total.toFixed(2);
+        }
+
+        async function placeOrder() {
+            const form = document.getElementById('checkoutForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const payment = document.querySelector('input[name="payment"]:checked').value;
+
+            const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const address = `${formData.get('address')}, ${formData.get('city')} - ${formData.get('pincode')}`;
+
+            const orderData = {
+                customer_name: formData.get('name'),
+                customer_phone: formData.get('phone'),
+                customer_email: formData.get('email'),
+                shipping_address: address,
+                total_amount: total,
+                items: cart.map(item => ({
+                    book_id: item.id,
+                    quantity: item.quantity,
+                    price: item.price
+                }))
+            };
+
+            try {
+                const res = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert('Order failed: ' + (err.error || 'Unknown error'));
+                    return;
+                }
+
+                const result = await res.json();
+
+                // Clear cart
+                localStorage.removeItem('storeCart');
+                cart = [];
+
+                // Show success
+                document.getElementById('checkoutContent').style.display = 'none';
+                document.getElementById('successContent').style.display = 'block';
+                document.getElementById('orderId').textContent = '#' + result.order_id;
+            } catch (err) {
+                alert('Order failed: ' + err.message);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadOrderSummary);
+    </script>
+</body>
+
+</html>

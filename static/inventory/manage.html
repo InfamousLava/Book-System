@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management - Inventro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/inventory.css">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="inv-header">
+        <div class="header-brand">
+            <div class="header-brand-icon">📦</div>
+            <span>Inventory Manager</span>
+        </div>
+        <div class="header-actions">
+            <span id="userName" style="color: var(--inv-muted);"></span>
+            <button class="btn-logout" onclick="logout()">Sign Out</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Stock Management</h1>
+                <p class="page-subtitle">Manage your book inventory</p>
+            </div>
+            <button class="btn btn-primary" onclick="openAddModal()">+ Add Book</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon orange">📚</div>
+                <div class="stat-value" id="totalBooks">0</div>
+                <div class="stat-label">Total Books</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">✓</div>
+                <div class="stat-value" id="inStock">0</div>
+                <div class="stat-label">In Stock</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon red">⚠️</div>
+                <div class="stat-value" id="lowStock">0</div>
+                <div class="stat-label">Low Stock (≤5)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon blue">🏷️</div>
+                <div class="stat-value" id="totalCategories">0</div>
+                <div class="stat-label">Categories</div>
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <div style="display: flex; gap: 0.5rem; flex: 1;">
+                <input type="text" class="search-input" id="searchInput"
+                    placeholder="Search by title, author, or barcode..." style="flex: 1;">
+                <button class="btn btn-primary" onclick="openBarcodeSearch()" title="Scan Barcode">
+                    📷 Scan
+                </button>
+            </div>
+            <select class="filter-select" id="categoryFilter">
+                <option value="">All Categories</option>
+            </select>
+            <select class="filter-select" id="stockFilter">
+                <option value="">All Stock</option>
+                <option value="low">Low Stock</option>
+                <option value="out">Out of Stock</option>
+            </select>
+        </div>
+
+        <!-- Books Table -->
+        <div class="card">
+            <div class="card-title">Books Inventory</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Book</th>
+                            <th>Categories</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Barcode</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="booksBody">
+                        <tr>
+                            <td colspan="6" style="text-align:center; color: var(--inv-muted);">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Modal -->
+    <div class="modal" id="bookModal">
+        <div class="modal-content">
+            <div class="modal-title">
+                <span id="modalTitle">Add Book</span>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <form id="bookForm">
+                <input type="hidden" id="editBookId">
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-input" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Author</label>
+                    <input type="text" class="form-input" name="author" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Price (₹)</label>
+                        <input type="number" class="form-input" name="price" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock</label>
+                        <input type="number" class="form-input" name="stock" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Categories (comma separated)</label>
+                    <input type="text" class="form-input" name="categories" placeholder="e.g. Fiction, Classic">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Barcode (optional)</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" class="form-input" name="barcode" style="flex: 1;">
+                        <button type="button" class="btn btn-primary" onclick="scanBarcodeForInput()"
+                            style="white-space: nowrap;">
+                            📷 Scan
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Save Book</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let books = [];
+
+        async function loadBooks() {
+            try {
+                const res = await fetch('/api/books');
+                if (res.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                books = await res.json();
+                renderBooks(books);
+                updateStats();
+                populateCategories();
+            } catch (err) {
+                console.error('Error loading books:', err);
+            }
+        }
+
+        function renderBooks(data) {
+            const tbody = document.getElementById('booksBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--inv-muted);">No books found</td></tr>';
+                return;
+            }
+
+            data.forEach(book => {
+                const cats = (book.categories || [book.category]).join(', ');
+                const stockLevel = book.stock <= 0 ? 'out' : (book.stock <= 5 ? 'low' : 'high');
+                const stockBadge = {
+                    'out': 'badge-danger',
+                    'low': 'badge-warning',
+                    'high': 'badge-success'
+                }[stockLevel];
+                const stockFill = Math.min(100, (book.stock / 50) * 100);
+                const stockColor = { 'out': 'low', 'low': 'medium', 'high': 'high' }[stockLevel];
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${book.title}</strong><br>
+                            <small style="color: var(--inv-muted);">${book.author}</small>
+                        </td>
+                        <td>${cats}</td>
+                        <td>₹${parseFloat(book.price).toFixed(2)}</td>
+                        <td>
+                            <div class="stock-indicator">
+                                <span class="badge ${stockBadge}">${book.stock}</span>
+                                <div class="stock-bar">
+                                    <div class="stock-fill ${stockColor}" style="width: ${stockFill}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${book.barcode || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-success" onclick="editBook(${book.id})">Edit</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteBook(${book.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('totalBooks').textContent = books.length;
+            document.getElementById('inStock').textContent = books.filter(b => b.stock > 0).length;
+            document.getElementById('lowStock').textContent = books.filter(b => b.stock > 0 && b.stock <= 5).length;
+
+            const cats = new Set();
+            books.forEach(b => (b.categories || [b.category]).forEach(c => cats.add(c)));
+            document.getElementById('totalCategories').textContent = cats.size;
+        }
+
+        function populateCategories() {
+            const cats = new Set();
+            books.forEach(b => (b.categories || [b.category]).forEach(c => cats.add(c)));
+
+            const select = document.getElementById('categoryFilter');
+            select.innerHTML = '<option value="">All Categories</option>';
+            [...cats].sort().forEach(c => {
+                select.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function filterBooks() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const stock = document.getElementById('stockFilter').value;
+
+            const filtered = books.filter(b => {
+                const matchSearch = !search ||
+                    b.title.toLowerCase().includes(search) ||
+                    b.author.toLowerCase().includes(search) ||
+                    (b.barcode && b.barcode.includes(search));
+
+                const bookCats = b.categories || [b.category];
+                const matchCategory = !category || bookCats.includes(category);
+
+                let matchStock = true;
+                if (stock === 'low') matchStock = b.stock > 0 && b.stock <= 5;
+                if (stock === 'out') matchStock = b.stock <= 0;
+
+                return matchSearch && matchCategory && matchStock;
+            });
+
+            renderBooks(filtered);
+        }
+
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', filterBooks);
+        document.getElementById('categoryFilter').addEventListener('change', filterBooks);
+        document.getElementById('stockFilter').addEventListener('change', filterBooks);
+
+        // Modal functions
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Book';
+            document.getElementById('bookForm').reset();
+            document.getElementById('editBookId').value = '';
+            document.getElementById('bookModal').style.display = 'flex';
+        }
+
+        function editBook(id) {
+            const book = books.find(b => b.id === id);
+            if (!book) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Book';
+            document.getElementById('editBookId').value = id;
+            document.querySelector('[name="title"]').value = book.title;
+            document.querySelector('[name="author"]').value = book.author;
+            document.querySelector('[name="price"]').value = book.price;
+            document.querySelector('[name="stock"]').value = book.stock;
+            document.querySelector('[name="categories"]').value = (book.categories || [book.category]).join(', ');
+            document.querySelector('[name="barcode"]').value = book.barcode || '';
+            document.getElementById('bookModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('bookModal').style.display = 'none';
+        }
+
+        document.getElementById('bookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const editId = document.getElementById('editBookId').value;
+
+            const data = {
+                title: formData.get('title'),
+                author: formData.get('author'),
+                price: parseFloat(formData.get('price')),
+                stock: parseInt(formData.get('stock')),
+                categories: formData.get('categories').split(',').map(c => c.trim()).filter(c => c),
+                barcode: formData.get('barcode') || null
+            };
+
+            try {
+                const url = editId ? `/api/books/${editId}` : '/api/books';
+                const method = editId ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (res.ok) {
+                    closeModal();
+                    loadBooks();
+                } else {
+                    const result = await res.json();
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
+
+        async function deleteBook(id) {
+            if (!confirm('Delete this book?')) return;
+
+            try {
+                const res = await fetch(`/api/books/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadBooks();
+                } else {
+                    const result = await res.json();
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        }
+
+        async function logout() {
+            if (confirm('Sign out?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Barcode Scanner functions
+        function openBarcodeSearch() {
+            loadScannerAndRun((barcode) => {
+                document.getElementById('searchInput').value = barcode;
+                filterBooks();
+            });
+        }
+
+        function scanBarcodeForInput() {
+            loadScannerAndRun((barcode) => {
+                document.querySelector('[name="barcode"]').value = barcode;
+            });
+        }
+
+        function loadScannerAndRun(callback) {
+            if (typeof openBarcodeScanner === 'undefined') {
+                const script = document.createElement('script');
+                script.src = '/js/barcode-scanner.js';
+                script.onload = () => openBarcodeScanner(callback);
+                document.head.appendChild(script);
+            } else {
+                openBarcodeScanner(callback);
+            }
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', loadBooks);
+    </script>
+</body>
+
+</html>

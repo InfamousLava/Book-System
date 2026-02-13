@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory - Inventro Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-icon">📊</div>
+                    <span>Inventro Admin</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/admin/sales.html" class="nav-item">
+                    <span class="nav-icon">💰</span> Sales History
+                </a>
+                <a href="/admin/inventory.html" class="nav-item active">
+                    <span class="nav-icon">📦</span> Inventory
+                </a>
+
+                <div class="nav-section">Management</div>
+                <a href="/admin/staff.html" class="nav-item">
+                    <span class="nav-icon">👥</span> Staff & Users
+                </a>
+                <a href="/admin/settings.html" class="nav-item">
+                    <span class="nav-icon">🎟️</span> Coupons & Promos
+                </a>
+
+                <div class="nav-section">Store</div>
+                <a href="/admin/orders.html" class="nav-item">
+                    <span class="nav-icon">🛒</span> Online Orders
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">A</div>
+                    <div class="user-details">
+                        <div class="user-name">Admin</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Sign Out</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Inventory Management</h1>
+                    <p class="page-subtitle">Manage your book catalog</p>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn btn-secondary" onclick="syncRatings()">★ Sync Ratings</button>
+                    <button class="btn btn-primary" onclick="openAddModal()">+ Add Book</button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue">📚</div>
+                    <div class="stat-value" id="totalBooks">0</div>
+                    <div class="stat-label">Total Books</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green">✓</div>
+                    <div class="stat-value" id="inStock">0</div>
+                    <div class="stat-label">In Stock</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange">⚠️</div>
+                    <div class="stat-value" id="lowStock">0</div>
+                    <div class="stat-label">Low Stock (≤5)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon purple">🏷️</div>
+                    <div class="stat-value" id="totalCategories">0</div>
+                    <div class="stat-label">Categories</div>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;">
+                    <div style="flex: 2; min-width: 250px; display: flex; gap: 0.5rem;">
+                        <input type="text" class="form-input" id="searchInput"
+                            placeholder="Search by title, author, or barcode..." style="flex: 1;">
+                        <button class="btn btn-primary" onclick="openBarcodeSearch()" title="Scan Barcode">
+                            📷 Scan
+                        </button>
+                    </div>
+                    <select class="form-select" id="categoryFilter" style="flex: 1; min-width: 150px;">
+                        <option value="">All Categories</option>
+                    </select>
+                    <select class="form-select" id="stockFilter" style="flex: 1; min-width: 150px;">
+                        <option value="">All Stock</option>
+                        <option value="low">Low Stock</option>
+                        <option value="out">Out of Stock</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Books Table -->
+            <div class="card">
+                <div class="card-title">Books Catalog</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Book</th>
+                                <th>Categories</th>
+                                <th>Price</th>
+                                <th>Stock</th>
+                                <th>Barcode</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="booksBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; color: var(--admin-muted);">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div id="bookModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div class="card" style="width: 500px; max-width: 90%;">
+            <div class="card-title">
+                <span id="modalTitle">Add Book</span>
+                <button onclick="closeModal()"
+                    style="background:none; border:none; color:var(--admin-muted); cursor:pointer; font-size:1.25rem;">×</button>
+            </div>
+            <form id="bookForm">
+                <input type="hidden" id="editBookId">
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-input" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Author</label>
+                    <input type="text" class="form-input" name="author" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Price (₹)</label>
+                        <input type="number" class="form-input" name="price" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Stock</label>
+                        <input type="number" class="form-input" name="stock" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Categories (comma separated)</label>
+                    <input type="text" class="form-input" name="categories" placeholder="e.g. Fiction, Classic">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Barcode (optional)</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" class="form-input" name="barcode" style="flex: 1;">
+                        <button type="button" class="btn btn-primary" onclick="scanBarcodeForInput()"
+                            style="white-space: nowrap;">
+                            📷 Scan
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Image URL (optional)</label>
+                    <input type="url" class="form-input" name="image_url"
+                        placeholder="https://example.com/book-cover.jpg">
+                    <small style="color: #888; font-size: 0.8rem;">Enter a URL to the book cover image</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Description (optional)</label>
+                    <textarea class="form-input" name="description" rows="3"
+                        placeholder="Book description..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Warehouse Location (optional)</label>
+                    <input type="text" class="form-input" name="warehouse_location" placeholder="e.g. A-12, Shelf 3">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Save Book</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let books = [];
+
+        async function loadBooks() {
+            try {
+                const res = await fetch('/api/books');
+                if (res.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                books = await res.json();
+                renderBooks(books);
+                updateStats();
+                populateCategories();
+            } catch (err) {
+                console.error('Error loading books:', err);
+            }
+        }
+
+        function renderBooks(data) {
+            const tbody = document.getElementById('booksBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--admin-muted);">No books found</td></tr>';
+                return;
+            }
+
+            data.forEach(book => {
+                const cats = (book.categories || [book.category]).join(', ');
+                const stockBadge = book.stock <= 0 ? 'badge-danger' : (book.stock <= 5 ? 'badge-warning' : 'badge-success');
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>
+                            <strong>${book.title}</strong><br>
+                            <small style="color: var(--admin-muted);">${book.author}</small>
+                        </td>
+                        <td>${cats}</td>
+                        <td>₹${parseFloat(book.price).toFixed(2)}</td>
+                        <td><span class="badge ${stockBadge}">${book.stock}</span></td>
+                        <td>${book.barcode || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="editBook(${book.id})">Edit</button>
+                            <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteBook(${book.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('totalBooks').textContent = books.length;
+            document.getElementById('inStock').textContent = books.filter(b => b.stock > 0).length;
+            document.getElementById('lowStock').textContent = books.filter(b => b.stock > 0 && b.stock <= 5).length;
+
+            const cats = new Set();
+            books.forEach(b => (b.categories || [b.category]).forEach(c => cats.add(c)));
+            document.getElementById('totalCategories').textContent = cats.size;
+        }
+
+        function populateCategories() {
+            const cats = new Set();
+            books.forEach(b => (b.categories || [b.category]).forEach(c => cats.add(c)));
+
+            const select = document.getElementById('categoryFilter');
+            select.innerHTML = '<option value="">All Categories</option>';
+            [...cats].sort().forEach(c => {
+                select.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        function filterBooks() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const stock = document.getElementById('stockFilter').value;
+
+            const filtered = books.filter(b => {
+                const matchSearch = !search ||
+                    b.title.toLowerCase().includes(search) ||
+                    b.author.toLowerCase().includes(search) ||
+                    (b.barcode && b.barcode.includes(search));
+
+                const bookCats = b.categories || [b.category];
+                const matchCategory = !category || bookCats.includes(category);
+
+                let matchStock = true;
+                if (stock === 'low') matchStock = b.stock > 0 && b.stock <= 5;
+                if (stock === 'out') matchStock = b.stock <= 0;
+
+                return matchSearch && matchCategory && matchStock;
+            });
+
+            renderBooks(filtered);
+        }
+
+        // Event listeners
+        document.getElementById('searchInput').addEventListener('input', filterBooks);
+        document.getElementById('categoryFilter').addEventListener('change', filterBooks);
+        document.getElementById('stockFilter').addEventListener('change', filterBooks);
+
+        // Modal functions
+        function openAddModal() {
+            document.getElementById('modalTitle').textContent = 'Add Book';
+            document.getElementById('bookForm').reset();
+            document.getElementById('editBookId').value = '';
+            document.getElementById('bookModal').style.display = 'flex';
+        }
+
+        function editBook(id) {
+            const book = books.find(b => b.id === id);
+            if (!book) return;
+
+            document.getElementById('modalTitle').textContent = 'Edit Book';
+            document.getElementById('editBookId').value = id;
+            document.querySelector('[name="title"]').value = book.title;
+            document.querySelector('[name="author"]').value = book.author;
+            document.querySelector('[name="price"]').value = book.price;
+            document.querySelector('[name="stock"]').value = book.stock;
+            document.querySelector('[name="categories"]').value = (book.categories || [book.category]).join(', ');
+            document.querySelector('[name="barcode"]').value = book.barcode || '';
+            document.querySelector('[name="image_url"]').value = book.image_url || '';
+            document.querySelector('[name="description"]').value = book.description || '';
+            document.querySelector('[name="warehouse_location"]').value = book.warehouse_location || '';
+            document.getElementById('bookModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('bookModal').style.display = 'none';
+        }
+
+        document.getElementById('bookForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const editId = document.getElementById('editBookId').value;
+
+            const data = {
+                title: formData.get('title'),
+                author: formData.get('author'),
+                price: parseFloat(formData.get('price')),
+                stock: parseInt(formData.get('stock')),
+                categories: formData.get('categories').split(',').map(c => c.trim()).filter(c => c),
+                barcode: formData.get('barcode') || null,
+                image_url: formData.get('image_url') || null,
+                description: formData.get('description') || null,
+                warehouse_location: formData.get('warehouse_location') || null
+            };
+
+            try {
+                const url = editId ? `/api/books/${editId}` : '/api/books';
+                const method = editId ? 'PUT' : 'POST';
+
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (res.ok) {
+                    closeModal();
+                    loadBooks();
+                } else {
+                    const result = await res.json();
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        });
+
+        async function deleteBook(id) {
+            if (!confirm('Delete this book?')) return;
+
+            try {
+                const res = await fetch(`/api/books/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadBooks();
+                } else {
+                    const result = await res.json();
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Connection error');
+            }
+        }
+
+        async function logout() {
+            if (confirm('Sign out?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Barcode Scanner functions
+        function openBarcodeSearch() {
+            loadScannerAndRun((barcode) => {
+                document.getElementById('searchInput').value = barcode;
+                filterBooks();
+            });
+        }
+
+        function scanBarcodeForInput() {
+            loadScannerAndRun((barcode) => {
+                document.querySelector('[name="barcode"]').value = barcode;
+            });
+        }
+
+        function loadScannerAndRun(callback) {
+            if (typeof openBarcodeScanner === 'undefined') {
+                const script = document.createElement('script');
+                script.src = '/js/barcode-scanner.js';
+                script.onload = () => openBarcodeScanner(callback);
+                document.head.appendChild(script);
+            } else {
+                openBarcodeScanner(callback);
+            }
+        }
+
+        async function syncRatings() {
+            if (!confirm('This will fetch ratings for all books from Google Books API. It may take some time. Continue?')) return;
+
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.innerText = 'Syncing...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/books/sync-ratings', { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    alert(data.message);
+                    loadBooks(); // Refresh table to show any updates if we display ratings here (optional)
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', loadBooks);
+    </script>
+</body>
+
+</html>

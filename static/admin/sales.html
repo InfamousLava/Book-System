@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales History - Inventro Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+
+<body>
+    <div class="admin-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-brand">
+                    <div class="sidebar-brand-icon">📊</div>
+                    <span>Inventro Admin</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section">Main</div>
+                <a href="/admin/dashboard.html" class="nav-item">
+                    <span class="nav-icon">📊</span> Dashboard
+                </a>
+                <a href="/admin/sales.html" class="nav-item active">
+                    <span class="nav-icon">💰</span> Sales History
+                </a>
+                <a href="/admin/inventory.html" class="nav-item">
+                    <span class="nav-icon">📦</span> Inventory
+                </a>
+
+                <div class="nav-section">Management</div>
+                <a href="/admin/staff.html" class="nav-item">
+                    <span class="nav-icon">👥</span> Staff & Users
+                </a>
+                <a href="/admin/settings.html" class="nav-item">
+                    <span class="nav-icon">🎟️</span> Coupons & Promos
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-info">
+                    <div class="user-avatar">A</div>
+                    <div class="user-details">
+                        <div class="user-name">Admin</div>
+                        <div class="user-role">Administrator</div>
+                    </div>
+                </div>
+                <button class="btn-logout" onclick="logout()">Sign Out</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-title">Sales History</h1>
+                    <p class="page-subtitle">View all transactions</p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card" style="margin-bottom: 1.5rem;">
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="flex: 1; min-width: 150px; margin:0;">
+                        <input type="text" id="searchId" class="form-input" placeholder="Search by ID...">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px; margin:0;">
+                        <input type="text" id="searchBook" class="form-input" placeholder="Search by book...">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px; margin:0;">
+                        <input type="date" id="startDate" class="form-input">
+                    </div>
+                    <div class="form-group" style="flex: 1; min-width: 150px; margin:0;">
+                        <input type="date" id="endDate" class="form-input">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sales Table -->
+            <div class="card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Date & Time</th>
+                                <th>Subtotal</th>
+                                <th>Discount</th>
+                                <th>Final Amount</th>
+                                <th>Customer</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="salesBody">
+                            <tr>
+                                <td colspan="7" style="text-align:center; color: var(--admin-muted);">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Sale Details Modal -->
+    <div id="saleModal"
+        style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); z-index:1000; align-items:center; justify-content:center;">
+        <div class="card" style="width: 500px; max-width: 90%;">
+            <div class="card-title">
+                Sale #<span id="modalSaleId"></span>
+                <button onclick="closeModal()"
+                    style="background:none; border:none; color:var(--admin-muted); cursor:pointer; font-size:1.25rem;">×</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Book</th>
+                            <th>Qty</th>
+                            <th>Price</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modalItemsBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allSales = [];
+
+        async function loadSales() {
+            try {
+                const res = await fetch('/api/sales');
+                if (res.status === 401) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+                allSales = await res.json();
+                renderSales(allSales);
+            } catch (err) {
+                console.error('Error loading sales:', err);
+            }
+        }
+
+        function renderSales(data) {
+            const tbody = document.getElementById('salesBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--admin-muted);">No sales found</td></tr>';
+                return;
+            }
+
+            data.forEach(s => {
+                const date = new Date(s.sale_date).toLocaleString();
+                const subtotal = parseFloat(s.total_amount) + parseFloat(s.discount_amount);
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>#${s.id}</strong></td>
+                        <td>${date}</td>
+                        <td>₹${subtotal.toFixed(2)}</td>
+                        <td style="color: var(--admin-success);">-₹${parseFloat(s.discount_amount).toFixed(2)}</td>
+                        <td><strong>₹${parseFloat(s.total_amount).toFixed(2)}</strong></td>
+                        <td>${s.customer_name || '-'}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" onclick="viewDetails(${s.id})">View</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterSales() {
+            const idQuery = document.getElementById('searchId').value.trim();
+            const bookQuery = document.getElementById('searchBook').value.toLowerCase().trim();
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+
+            const filtered = allSales.filter(s => {
+                if (idQuery && !s.id.toString().includes(idQuery)) return false;
+                if (bookQuery && (!s.searchable_text || !s.searchable_text.toLowerCase().includes(bookQuery))) return false;
+
+                if (start || end) {
+                    const saleDate = new Date(s.sale_date);
+                    saleDate.setHours(0, 0, 0, 0);
+                    if (start && saleDate < new Date(start)) return false;
+                    if (end && saleDate > new Date(end)) return false;
+                }
+
+                return true;
+            });
+
+            renderSales(filtered);
+        }
+
+        async function viewDetails(id) {
+            try {
+                const res = await fetch(`/api/sales/${id}/items`);
+                const items = await res.json();
+
+                document.getElementById('modalSaleId').textContent = id;
+                const tbody = document.getElementById('modalItemsBody');
+                tbody.innerHTML = '';
+
+                items.forEach(item => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${item.title}</td>
+                            <td>${item.quantity}</td>
+                            <td>₹${parseFloat(item.price_at_sale).toFixed(2)}</td>
+                            <td>₹${(item.quantity * item.price_at_sale).toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+
+                document.getElementById('saleModal').style.display = 'flex';
+            } catch (err) {
+                alert('Error loading details');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('saleModal').style.display = 'none';
+        }
+
+        async function logout() {
+            if (confirm('Are you sure you want to sign out?')) {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            }
+        }
+
+        // Event listeners
+        document.getElementById('searchId').addEventListener('input', filterSales);
+        document.getElementById('searchBook').addEventListener('input', filterSales);
+        document.getElementById('startDate').addEventListener('change', filterSales);
+        document.getElementById('endDate').addEventListener('change', filterSales);
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', loadSales);
+    </script>
+</body>
+
+</html>

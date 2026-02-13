@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Details - Inventro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/store.css">
+    <style>
+        .product-detail-container {
+            max-width: 1000px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 4rem;
+        }
+
+        .product-gallery {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .product-gallery img {
+            max-width: 100%;
+            max-height: 500px;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+
+        .product-info-col h1 {
+            font-size: 2.5rem;
+            color: var(--store-text);
+            margin-bottom: 0.5rem;
+            line-height: 1.2;
+        }
+
+        .product-author {
+            font-size: 1.25rem;
+            color: var(--store-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .product-meta {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--store-border);
+        }
+
+        .rating-badge {
+            background: #fffbeb;
+            color: #d97706;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .category-badge {
+            background: #eff6ff;
+            color: var(--store-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .product-price-large {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--store-text);
+            margin-bottom: 1rem;
+        }
+
+        .stock-status {
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stock-in {
+            color: var(--store-success);
+        }
+
+        .stock-out {
+            color: #dc2626;
+        }
+
+        .product-description {
+            color: #4b5563;
+            line-height: 1.8;
+            margin-bottom: 3rem;
+            font-size: 1.05rem;
+        }
+
+        .action-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--store-border);
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .qty-input {
+            width: 80px;
+            padding: 0.75rem;
+            border: 1px solid var(--store-border);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+
+        .btn-add-large {
+            flex: 1;
+            background: var(--store-text);
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-add-large:hover {
+            transform: translateY(-2px);
+            background: black;
+        }
+
+        @media (max-width: 768px) {
+            .product-detail-container {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="store-header">
+        <div class="header-inner">
+            <a href="/store/" class="header-brand">📚 Inventro</a>
+
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+
+            <nav class="header-nav" id="mainNav">
+                <a href="/store/" class="nav-link">Home</a>
+                <a href="/store/catalog.html" class="nav-link">All Books</a>
+                <div class="user-menu" id="authSection">
+                    <a href="/customer/login.html" class="btn-login-nav">Login / Register</a>
+                </div>
+                <button class="cart-btn" onclick="toggleCart()" aria-label="Cart">
+                    🛒
+                    <span class="cart-count" id="cartCount">0</span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <div class="product-detail-container" id="productContent">
+        <div style="grid-column: 1/-1; text-align: center; padding: 4rem;">Loading book details...</div>
+    </div>
+
+    <!-- Cart Drawer (Shared) -->
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+    <div class="cart-drawer" id="cartDrawer">
+        <div class="cart-header">
+            <span class="cart-title">🛒 Your Cart</span>
+            <button class="cart-close" onclick="toggleCart()">×</button>
+        </div>
+        <div class="cart-items" id="cartItems"></div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Total</span>
+                <span id="cartTotal">₹0.00</span>
+            </div>
+            <button class="btn-checkout" onclick="proceedToCheckout()">Proceed to Checkout</button>
+        </div>
+    </div>
+
+    <script>
+        let currentBook = null;
+        let cart = JSON.parse(localStorage.getItem('storeCart') || '[]');
+
+        async function init() {
+            checkUser();
+            updateCartUI();
+
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+
+            if (!id) {
+                window.location.href = '/store/catalog.html';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/store/books/${id}`);
+                if (!res.ok) throw new Error('Book not found');
+                currentBook = await res.json();
+                renderProduct(currentBook);
+            } catch (err) {
+                document.getElementById('productContent').innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 4rem;">
+                        <h2>Book Not Found</h2>
+                        <a href="/store/catalog.html" class="btn-login-nav" style="display:inline-block; margin-top:1rem;">Back to Catalog</a>
+                    </div>
+                `;
+            }
+        }
+
+        function renderProduct(book) {
+            const cats = (book.categories || [book.category]).join(', ');
+            const outOfStock = book.stock <= 0;
+
+            document.getElementById('productContent').innerHTML = `
+                <div class="product-gallery">
+                    <img src="${book.image_url || '/placeholder.png'}" alt="${book.title}">
+                </div>
+                <div class="product-info-col">
+                    <div class="category-badge" style="display:inline-block; margin-bottom:1rem;">${cats}</div>
+                    <h1>${book.title}</h1>
+                    <div class="product-author">by ${book.author}</div>
+                    
+                    <div class="product-meta">
+                        <div class="rating-badge">
+                            Inventro: ★ ${parseFloat(book.rating_average || 0).toFixed(1)}
+                            <span style="font-weight:400; font-size:0.8rem; margin-left:0.25rem;">(${book.rating_count || 0})</span>
+                        </div>
+                        <div class="rating-badge" id="googleRating" style="background:#f3f4f6; color:#4b5563; display:none;">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="product-price-large">₹${parseFloat(book.price).toFixed(2)}</div>
+                    
+                    <div class="stock-status ${outOfStock ? 'stock-out' : 'stock-in'}">
+                        ${outOfStock ? '🔴 Out of Stock' : (book.stock <= 5 ? '⚠️ Low Stock! Only a few left.' : '🟢 In Stock')}
+                    </div>
+
+                    <p class="product-description">
+                        ${book.description || 'No description available for this book.'}
+                    </p>
+
+                    <div class="action-container" style="margin-bottom: 3rem;">
+                        <input type="number" id="qtyInput" class="qty-input" value="1" min="1" max="${book.stock}" ${outOfStock ? 'disabled' : ''}>
+                        <button class="btn-add-large" onclick="addToCartDetailed()" ${outOfStock ? 'disabled' : ''}>
+                            ${outOfStock ? 'Unavailable' : 'Add to Cart'}
+                        </button>
+                    </div>
+
+                    <!-- Reviews Section -->
+                    <div style="border-top: 1px solid var(--store-border); padding-top: 2rem;">
+                        <h3 style="margin-bottom: 1.5rem;">Customer Reviews</h3>
+                        <div id="reviewsList">
+                            <p style="color: var(--store-muted);">Loading reviews...</p>
+                        </div>
+                        
+                        <div id="reviewFormContainer" style="margin-top: 2rem; background: #f9fafb; padding: 1.5rem; border-radius: 8px; display:none;">
+                            <h4 style="margin-bottom: 1rem;">Write a Review</h4>
+                            <div style="display:flex; gap:1rem; margin-bottom:1rem;">
+                                <label>Rating: 
+                                    <select id="reviewRating" style="padding:0.5rem; border-radius:4px; border:1px solid #d1d5db;">
+                                        <option value="5">5 - Excellent</option>
+                                        <option value="4">4 - Very Good</option>
+                                        <option value="3">3 - Good</option>
+                                        <option value="2">2 - Fair</option>
+                                        <option value="1">1 - Poor</option>
+                                    </select>
+                                </label>
+                            </div>
+                            <!-- Image Upload Input -->
+                            <div style="margin-bottom:1rem;">
+                                <label style="display:block; font-size:0.9rem; margin-bottom:0.5rem; color:#374151;">Attach Image (Optional):</label>
+                                <input type="file" id="reviewImage" accept="image/*" style="font-size:0.9rem;">
+                            </div>
+                            <textarea id="reviewComment" placeholder="Share your thoughts..." style="width:100%; height:100px; padding:0.75rem; border:1px solid #d1d5db; border-radius:4px; margin-bottom:1rem; font-family:inherit;"></textarea>
+                            <button onclick="submitReview(${book.id})" class="btn-add-large" style="font-size:0.9rem; padding:0.75rem;">Submit Review</button>
+                        </div>
+                        <div id="loginToReview" style="margin-top: 2rem; display:none;">
+                            <a href="/customer/login.html?redirect=${encodeURIComponent(window.location.href)}" style="color:var(--store-primary); text-decoration:underline;">Log in</a> to write a review.
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.title = `${book.title} - Inventro Bookstore`;
+
+            // Post-render actions
+            fetchExternalRating(book.barcode, book.title);
+            loadReviews(book.id);
+            checkReviewPermission();
+        }
+
+        async function fetchExternalRating(isbn, title) {
+            const el = document.getElementById('googleRating');
+            try {
+                const query = isbn ? `isbn:${isbn}` : `intitle:${encodeURIComponent(title)}`;
+                const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}&maxResults=1`);
+                const data = await res.json();
+
+                if (data.items && data.items[0]?.volumeInfo?.averageRating) {
+                    const rating = data.items[0].volumeInfo.averageRating;
+                    const count = data.items[0].volumeInfo.ratingsCount || 0;
+                    el.innerHTML = `<img src="https://www.google.com/favicon.ico" style="width:16px;height:16px;"> Google: ${rating} <span style="font-size:0.75rem;opacity:0.8;">(${count})</span>`;
+                    el.style.display = 'flex';
+                }
+            } catch (e) {
+                console.log('No external rating found');
+            }
+        }
+
+        async function loadReviews(bookId) {
+            try {
+                const res = await fetch(`/api/store/books/${bookId}/reviews`);
+                const reviews = await res.json();
+                const container = document.getElementById('reviewsList');
+
+                if (reviews.length === 0) {
+                    container.innerHTML = '<p style="color: var(--store-muted); font-style:italic;">No reviews yet. Be the first to review!</p>';
+                    return;
+                }
+
+                container.innerHTML = reviews.map(r => `
+                    <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid #f3f4f6;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                            <span style="font-weight:600;">${r.reviewer}</span>
+                            <span style="color:#f59e0b;">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span>
+                        </div>
+                        <p style="color:#4b5563; line-height:1.5; margin-bottom:0.5rem;">${r.comment}</p>
+                        ${r.image_url ? `<div style="margin-bottom:0.5rem;"><img src="${r.image_url}" alt="Review Image" style="max-height:150px; border-radius:4px; border:1px solid #eee;"></div>` : ''}
+                        <div style="font-size:0.75rem; color:#9ca3af;">${new Date(r.created_at).toLocaleDateString()}</div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function checkReviewPermission() {
+            try {
+                const res = await fetch('/api/current_user');
+                if (res.ok) {
+                    document.getElementById('reviewFormContainer').style.display = 'block';
+                } else {
+                    document.getElementById('loginToReview').style.display = 'block';
+                }
+            } catch (e) { }
+        }
+
+        async function submitReview(bookId) {
+            const rating = parseInt(document.getElementById('reviewRating').value);
+            const comment = document.getElementById('reviewComment').value;
+            const imageFile = document.getElementById('reviewImage').files[0];
+
+            const formData = new FormData();
+            formData.append('rating', rating);
+            formData.append('comment', comment);
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+
+            try {
+                const res = await fetch(`/api/store/books/${bookId}/reviews`, {
+                    method: 'POST',
+                    body: formData // Fetch automatically sets multipart header
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    alert('Review submitted!');
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Failed to submit review');
+                }
+            } catch (e) {
+                alert('Error submitting review');
+            }
+        }
+
+        function addToCartDetailed() {
+            const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+
+            const existing = cart.find(c => c.id === currentBook.id);
+            if (existing) {
+                existing.quantity += qty;
+            } else {
+                cart.push({
+                    id: currentBook.id,
+                    title: currentBook.title,
+                    price: currentBook.price,
+                    quantity: qty
+                });
+            }
+
+            saveCart();
+            updateCartUI();
+            toggleCart();
+        }
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            document.getElementById('mainNav').classList.toggle('active');
+        }
+
+        // Shared Auth & Cart Logic (Duplicated for simplicity, could be modularized)
+        function toggleCart() {
+            document.getElementById('cartDrawer').classList.toggle('open');
+            document.getElementById('cartOverlay').classList.toggle('open');
+        }
+        function saveCart() { localStorage.setItem('storeCart', JSON.stringify(cart)); }
+        function updateCartUI() {
+            const countEl = document.getElementById('cartCount');
+            const itemsEl = document.getElementById('cartItems');
+            const totalEl = document.getElementById('cartTotal');
+            const totalItems = cart.reduce((sum, c) => sum + c.quantity, 0);
+            countEl.textContent = totalItems;
+
+            if (cart.length === 0) {
+                itemsEl.innerHTML = '<div class="cart-empty">Your cart is empty</div>';
+                totalEl.textContent = '₹0.00';
+                return;
+            }
+            let total = 0;
+            itemsEl.innerHTML = cart.map(item => {
+                const subtotal = item.price * item.quantity;
+                total += subtotal;
+                return `
+                    <div class="cart-item">
+                        <div class="cart-item-image">📖</div>
+                        <div class="cart-item-info">
+                            <div class="cart-item-title">${item.title}</div>
+                            <div class="cart-item-price">₹${parseFloat(item.price).toFixed(2)}</div>
+                            <div class="cart-item-qty">
+                                <button class="qty-btn" onclick="updateQty(${item.id}, -1)">−</button>
+                                <span>${item.quantity}</span>
+                                <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
+                            </div>
+                        </div>
+                    </div>`;
+            }).join('');
+            totalEl.textContent = '₹' + total.toFixed(2);
+        }
+        function updateQty(id, change) {
+            const item = cart.find(c => c.id === id);
+            if (item) {
+                item.quantity += change;
+                if (item.quantity <= 0) cart = cart.filter(c => c.id !== id);
+                saveCart();
+                updateCartUI();
+            }
+        }
+        function proceedToCheckout() {
+            if (cart.length > 0) window.location.href = '/store/checkout.html';
+        }
+        async function checkUser() {
+            try {
+                const res = await fetch('/api/current_user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const container = document.getElementById('authSection');
+                    if (user.role === 'customer') {
+                        const initials = (user.email[0] || 'U').toUpperCase();
+                        container.innerHTML = `
+                            <div class="user-trigger">
+                                <div class="user-avatar-small">${initials}</div>
+                                <span>Account ▾</span>
+                            </div>
+                            <div class="dropdown-menu">
+                                <a href="/customer/dashboard.html" class="dropdown-item">My Dashboard</a>
+                                <div class="dropdown-divider"></div>
+                                <a href="#" onclick="logout()" class="dropdown-item" style="color:red;">Sign Out</a>
+                            </div>`;
+                    } else {
+                        container.innerHTML = '<div class="user-trigger"><span>Staff</span></div>';
+                    }
+                }
+            } catch (e) { }
+        }
+        async function logout() {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.reload();
+        }
+
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+
+</html>
