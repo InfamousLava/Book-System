@@ -406,6 +406,9 @@
         </aside>
 
         <!-- Main Content -->
+        <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+        <button class="mobile-menu-btn" onclick="toggleSidebar()">&#9776;</button>
+
         <main class="main-content">
             <div class="page-header">
                 <div>
@@ -806,6 +809,13 @@
 
         // Init
         loadOrders();
+    </script>
+
+    <script>
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('active');
+        }
     </script>
 </body>
 

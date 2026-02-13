@@ -122,3 +122,27 @@
 .total-line.final h2 {
     margin: 0;
 }
+
+/* ==================== RESPONSIVE ==================== */
+@media (max-width: 480px) {
+    .coupon-section {
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .coupon-input-group {
+        flex-direction: column;
+    }
+
+    .coupon-input-group input {
+        width: 100%;
+    }
+
+    .btn-apply-coupon {
+        width: 100%;
+    }
+
+    .total-line {
+        font-size: 0.95rem;
+    }
+}
