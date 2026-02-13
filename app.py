@@ -903,8 +903,16 @@ def get_sales():
         for s in sales:
             s['id'] = str(s['_id'])
             del s['_id']
-            if 'customer_id' in s: s['customer_id'] = str(s['customer_id'])
+            if 'customer_id' in s and s['customer_id']: s['customer_id'] = str(s['customer_id'])
+            if 'created_by' in s and s['created_by']: s['created_by'] = str(s['created_by'])
             if 'customer' in s: del s['customer'] # Clean up
+            # Convert ObjectIds in nested items
+            for item in s.get('items', []):
+                if 'book_id' in item: item['book_id'] = str(item['book_id'])
+                if '_id' in item: item['_id'] = str(item['_id'])
+            # Convert dates
+            if 'sale_date' in s and hasattr(s['sale_date'], 'isoformat'):
+                s['sale_date'] = s['sale_date'].isoformat()
             
         return jsonify(sales)
     except Exception as e:

@@ -1,0 +1,55 @@
+﻿============================================================
+COMPREHENSIVE TEST (corrected)
+============================================================
+
+--- Public Pages ---
+[PASS] Root (no session) -> 302 (exp 302) 
+[PASS] Store Home -> 200 (exp 200) 
+[PASS] Customer Login -> 200 (exp 200) 
+[PASS] Admin Login -> 200 (exp 200) 
+
+--- CSS (MIME check) ---
+[PASS] store.css -> 200 (exp 200) 
+  Content-Type: text/css; charset=utf-8 PASS
+[PASS] admin.css -> 200 (exp 200) 
+
+--- Public APIs ---
+[PASS] Store Books -> 200 (exp 200) 
+[PASS] Book Detail -> 200 (exp 200) 
+
+--- Customer Flow ---
+[PASS] Register -> 201 (exp 201) 
+[PASS] Login Customer -> 200 (exp 200) 
+[PASS] Current User -> 200 (exp 200) 
+[PASS] My Orders -> 200 (exp 200) 
+[PASS] Create Order -> 201 (exp 201) 
+[PASS] Logout -> 200 (exp 200) 
+
+--- Admin Flow ---
+[PASS] Staff Login (admin) -> 200 (exp 200) 
+[PASS] Current User (admin) -> 200 (exp 200) 
+[PASS] Dashboard Stats -> 200 (exp 200) 
+[PASS] Get Books (admin) -> 200 (exp 200) 
+[PASS] Get Orders (admin) -> 200 (exp 200) 
+[PASS] Order Stats -> 200 (exp 200) 
+[PASS] Get Sales -> 200 (exp 200) 
+[PASS] Get Customers -> 200 (exp 200) 
+[PASS] Get Users -> 200 (exp 200) 
+[PASS] Get Coupons -> 200 (exp 200) 
+[PASS] Get Promotions -> 200 (exp 200) 
+
+--- Cashier Flow ---
+[PASS] Staff Login (cashier) -> 200 (exp 200) 
+[PASS] Cashier Get Books -> 200 (exp 200) 
+[PASS] POS Checkout -> 200 (exp 200) 
+[PASS] Shift Summary -> 200 (exp 200) 
+
+--- Review APIs ---
+[PASS] Login for review -> 200 (exp 200) 
+[PASS] Get Reviews -> 200 (exp 200) 
+[PASS] Add Review -> 201 (exp 201) 
+
+============================================================
+RESULTS: 33 passed, 0 failed
+ALL TESTS PASSED!
+============================================================
