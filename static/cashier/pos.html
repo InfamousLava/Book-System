@@ -114,7 +114,7 @@
             try {
                 const res = await fetch('/api/books');
                 if (res.status === 401) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/admin/login.html';
                     return;
                 }
                 books = await res.json();
@@ -133,7 +133,7 @@
                 const lowStock = book.stock > 0 && book.stock <= 5;
 
                 grid.innerHTML += `
-                    <div class="product-card ${outOfStock ? 'out-of-stock' : ''}" onclick="${outOfStock ? '' : `addToCart(${book.id})`}">
+                    <div class="product-card ${outOfStock ? 'out-of-stock' : ''}" onclick="${outOfStock ? '' : `addToCart('${book.id}')`}">
                         <div class="product-title">${book.title}</div>
                         <div class="product-author">${book.author}</div>
                         <div class="product-footer">
@@ -146,10 +146,10 @@
         }
 
         function addToCart(bookId) {
-            const book = books.find(b => b.id === bookId);
+            const book = books.find(b => String(b.id) === String(bookId));
             if (!book || book.stock <= 0) return;
 
-            const existing = cart.find(c => c.id === bookId);
+            const existing = cart.find(c => String(c.id) === String(bookId));
             if (existing) {
                 if (existing.quantity >= book.stock) {
                     alert('Not enough stock!');
@@ -170,12 +170,12 @@
         }
 
         function updateQty(bookId, change) {
-            const item = cart.find(c => c.id === bookId);
+            const item = cart.find(c => String(c.id) === String(bookId));
             if (!item) return;
 
             const newQty = item.quantity + change;
             if (newQty <= 0) {
-                cart = cart.filter(c => c.id !== bookId);
+                cart = cart.filter(c => String(c.id) !== String(bookId));
             } else if (newQty > item.stock) {
                 alert('Not enough stock!');
             } else {
@@ -185,7 +185,7 @@
         }
 
         function removeItem(bookId) {
-            cart = cart.filter(c => c.id !== bookId);
+            cart = cart.filter(c => String(c.id) !== String(bookId));
             renderCart();
         }
 
@@ -219,10 +219,10 @@
                         <div class="cart-item-price">₹${parseFloat(item.price).toFixed(2)}</div>
                     </div>
                     <div class="cart-item-controls">
-                        <button class="qty-btn" onclick="updateQty(${item.id}, -1)">−</button>
+                        <button class="qty-btn" onclick="updateQty('${item.id}', -1)">−</button>
                         <span class="qty-display">${item.quantity}</span>
-                        <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
-                        <button class="btn-remove" onclick="removeItem(${item.id})">×</button>
+                        <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
+                        <button class="btn-remove" onclick="removeItem('${item.id}')">×</button>
                     </div>
                 </div>
             `).join('');
@@ -262,6 +262,7 @@
 
         async function checkout() {
             if (cart.length === 0) return;
+            if (!confirm('Complete this sale?')) return;
 
             try {
                 const totalsRes = await fetch('/api/calculate-totals', {
@@ -384,7 +385,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     alert(`Shift ended! Total sales: ₹${data.total_sales?.toFixed(2) || 0}`);
-                    window.location.href = '/login.html';
+                    window.location.href = '/admin/login.html';
                 } else {
                     alert('Error: ' + data.error);
                 }
@@ -422,8 +423,20 @@
             }
         }
 
+        // Auto-start shift on POS page load
+        async function startShift() {
+            try {
+                await fetch('/api/shift/start', { method: 'POST' });
+            } catch (err) {
+                console.error('Error starting shift:', err);
+            }
+        }
+
         // Init
-        document.addEventListener('DOMContentLoaded', loadProducts);
+        document.addEventListener('DOMContentLoaded', () => {
+            startShift();
+            loadProducts();
+        });
     </script>
 </body>
 

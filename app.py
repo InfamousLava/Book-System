@@ -3,6 +3,7 @@ load_dotenv()
 
 from flask import Flask, jsonify, request, send_from_directory, session, redirect, url_for
 import db
+import email_service
 # from psycopg2.extras import RealDictCursor # Removed
 import requests
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -249,17 +250,20 @@ def google_callback():
                 session['email'] = email
                 session['role'] = 'customer'
                 session['login_method'] = 'google'
+                
+                # Send welcome email (non-blocking, won't crash on failure)
+                email_service.send_welcome_email(email, name)
             
             next_url = session.pop('oauth_next', '/customer/dashboard.html')
             return redirect(next_url)
             
         except Exception as e:
             print(f"DB Error: {e}")
-            return redirect('/customer_login.html?error=db_error')
+            return redirect('/customer/login.html?error=db_error')
             
     except Exception as e:
         print(f"OAuth Error: {e}")
-        return redirect('/customer_login.html?error=google_auth_failed')
+        return redirect('/customer/login.html?error=google_auth_failed')
 
 def _handle_login(data, is_customer):
     if not data:
@@ -358,6 +362,9 @@ def register():
         session['email'] = email
         session['role'] = 'customer'
         
+        # Send welcome email
+        email_service.send_welcome_email(email, name)
+        
         return jsonify({'message': 'Registration successful'}), 201
         
     except Exception as e:
@@ -396,6 +403,9 @@ def my_orders():
             del order['_id']
             # Convert other ObjectIds
             if 'customer_id' in order: order['customer_id'] = str(order['customer_id'])
+            # Serialize order_date
+            if 'order_date' in order and hasattr(order['order_date'], 'isoformat'):
+                order['order_date'] = order['order_date'].isoformat()
             # Ensure items are formatted correctly
             if 'items' in order:
                 for item in order['items']:
@@ -415,7 +425,18 @@ def logout():
 @app.route('/api/current_user')
 def get_current_user():
     if 'user_id' in session:
-        return jsonify({'id': session['user_id'], 'email': session.get('email'), 'role': session['role']})
+        user_data = {'id': session['user_id'], 'email': session.get('email'), 'role': session['role']}
+        # Include customer details for checkout auto-fill
+        if session['role'] == 'customer':
+            try:
+                database = db.get_db_connection()
+                cust = database.customers.find_one({'user_id': ObjectId(session['user_id'])})
+                if cust:
+                    user_data['name'] = cust.get('name', '')
+                    user_data['phone'] = cust.get('phone', '')
+            except Exception:
+                pass
+        return jsonify(user_data)
     return jsonify({}), 401
 
 
@@ -446,7 +467,7 @@ def get_dashboard_stats():
                     # Sum sales since shift start
                     start_time = shift['start_time']
                     pipeline = [
-                        {'$match': {'sale_date': {'$gte': start_time}}},
+                        {'$match': {'sale_date': {'$gte': start_time}, 'created_by': ObjectId(session['user_id'])}},
                         {'$group': {'_id': None, 'total': {'$sum': '$total_amount'}, 'count': {'$sum': 1}}}
                     ]
                     sales_data = list(database.sales.aggregate(pipeline))
@@ -595,6 +616,34 @@ def get_dashboard_stats():
         'active_shifts': active_shifts
     })
 
+@app.route('/api/shift/start', methods=['POST'])
+@login_required
+def start_shift():
+    """Start a new shift for the current cashier."""
+    database = db.get_db_connection()
+    
+    # Check if there's already an active shift
+    existing_shift_id = session.get('shift_id')
+    if existing_shift_id:
+        try:
+            existing = database.shifts.find_one({'_id': ObjectId(existing_shift_id), 'status': 'active'})
+            if existing:
+                return jsonify({'message': 'Shift already active', 'shift_id': str(existing['_id'])}), 200
+        except:
+            pass
+    
+    try:
+        shift_doc = {
+            'user_id': ObjectId(session['user_id']),
+            'start_time': datetime.utcnow(),
+            'status': 'active'
+        }
+        result = database.shifts.insert_one(shift_doc)
+        session['shift_id'] = str(result.inserted_id)
+        return jsonify({'message': 'Shift started', 'shift_id': str(result.inserted_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 @app.route('/api/shift/summary', methods=['GET'])
 @login_required
 def get_shift_summary():
@@ -613,7 +662,7 @@ def get_shift_summary():
         
         # Sum sales since start_time
         pipeline = [
-            {'$match': {'sale_date': {'$gte': start_time}}},
+            {'$match': {'sale_date': {'$gte': start_time}, 'created_by': ObjectId(session['user_id'])}},
             {'$group': {'_id': None, 'total': {'$sum': '$total_amount'}}}
         ]
         res = list(database.sales.aggregate(pipeline))
@@ -638,7 +687,7 @@ def end_shift():
                 
                 # Calculate total
                 pipeline = [
-                    {'$match': {'sale_date': {'$gte': start_time}}},
+                    {'$match': {'sale_date': {'$gte': start_time}, 'created_by': ObjectId(session['user_id'])}},
                     {'$group': {'_id': None, 'total': {'$sum': '$total_amount'}}}
                 ]
                 res = list(database.sales.aggregate(pipeline))
@@ -692,7 +741,7 @@ def public_store_books():
         for b in books_cursor:
             b['id'] = str(b['_id'])
             del b['_id']
-             # Ensure defaults
+            # Ensure defaults
             if 'rating_average' not in b: b['rating_average'] = 0
             if 'rating_count' not in b: b['rating_count'] = 0
             books.append(b)
@@ -926,13 +975,14 @@ def get_sale_items(id):
         sale = database.sales.find_one({'_id': ObjectId(id)})
         if not sale: return jsonify([])
         
-        # Items are embedded
+        # Items are embedded — serialize ObjectIds
         items = sale.get('items', [])
+        for item in items:
+            if 'book_id' in item: item['book_id'] = str(item['book_id'])
+            if '_id' in item: item['_id'] = str(item['_id'])
         return jsonify(items)
     except Exception as e:
         return jsonify({'error': str(e)}), 400
-
-# ========= COUPON & PROMOTION APIs =========
 
 # ========= COUPON & PROMOTION APIs =========
 
@@ -976,14 +1026,14 @@ def create_coupon():
             'code': data['code'],
             'description': data.get('description', ''),
             'discount_type': data['discount_type'],
-            'discount_value': data['discount_value'],
+            'discount_value': float(data['discount_value']),
             'valid_from': data.get('valid_from'), # Expecting ISO string or datetime?
             # If string, Mongo saves as string? Better to parse to datetime if possible.
             # But let's assume ISO string is fine or frontend sends something compatible.
             # Best practice: Convert to datetime objects.
             'valid_until': data.get('valid_until'),
             'constraints': constraints, # Store as dict, not JSON string
-            'max_uses': data.get('max_uses'),
+            'max_uses': int(data['max_uses']) if data.get('max_uses') else None,
             'used_count': 0,
             'active': True,
             'created_at': datetime.utcnow()
@@ -1061,7 +1111,7 @@ def validate_coupon():
         # Ideally store uppercase or search with regex.
         # Let's search exact match first, assuming we save standard.
         # Use regex for Safety:
-        coupon = database.coupons.find_one({'code': {'$regex': f'^{code}$', '$options': 'i'}})
+        coupon = database.coupons.find_one({'code': {'$regex': f'^{re.escape(code)}$', '$options': 'i'}})
         
         if not coupon:
             return jsonify({'valid': False, 'error': 'Invalid coupon code.'}), 400
@@ -1112,14 +1162,21 @@ def get_promotions():
     now = datetime.utcnow()
     cursor = database.promotions.find({
         'active': True,
-        '$or': [{'start_date': {'$exists': False}}, {'start_date': None}, {'start_date': {'$lte': now}}],
-        '$or': [{'end_date': {'$exists': False}}, {'end_date': None}, {'end_date': {'$gte': now}}]
+        '$and': [
+            {'$or': [{'start_date': {'$exists': False}}, {'start_date': None}, {'start_date': {'$lte': now}}]},
+            {'$or': [{'end_date': {'$exists': False}}, {'end_date': None}, {'end_date': {'$gte': now}}]}
+        ]
     }).sort('discount_percentage', -1)
     
     promotions = []
     for p in cursor:
         p['id'] = str(p['_id'])
         del p['_id']
+        # Serialize datetime objects for JSON
+        if 'start_date' in p and hasattr(p['start_date'], 'isoformat'):
+            p['start_date'] = p['start_date'].isoformat()
+        if 'end_date' in p and hasattr(p['end_date'], 'isoformat'):
+            p['end_date'] = p['end_date'].isoformat()
         promotions.append(p)
     return jsonify(promotions)
 
@@ -1180,8 +1237,10 @@ def calculate_order_totals(database, cart, coupon_code=None):
     now = datetime.utcnow()
     promotions = list(database.promotions.find({
         'active': True,
-        '$or': [{'start_date': {'$exists': False}}, {'start_date': None}, {'start_date': {'$lte': now}}],
-        '$or': [{'end_date': {'$exists': False}}, {'end_date': None}, {'end_date': {'$gte': now}}]
+        '$and': [
+            {'$or': [{'start_date': {'$exists': False}}, {'start_date': None}, {'start_date': {'$lte': now}}]},
+            {'$or': [{'end_date': {'$exists': False}}, {'end_date': None}, {'end_date': {'$gte': now}}]}
+        ]
     }))
 
     # Apply Automatic Promotions FIRST
@@ -1224,7 +1283,7 @@ def calculate_order_totals(database, cart, coupon_code=None):
 
     # Apply Coupon
     if coupon_code:
-        coupon = database.coupons.find_one({'code': {'$regex': f'^{coupon_code}$', '$options': 'i'}, 'active': True})
+        coupon = database.coupons.find_one({'code': {'$regex': f'^{re.escape(coupon_code)}$', '$options': 'i'}, 'active': True})
         
         if coupon:
              is_valid, _ = check_rules(coupon, cart)
@@ -1448,7 +1507,7 @@ def delete_book(id):
 @login_required # Only logged in users (like Cashiers) use this POS checkout
 def checkout():
     data = request.json
-    cart = data.get('cart', [])
+    cart = data.get('cart') or data.get('items', [])
     coupon_code = data.get('coupon_code')
     payment_method = data.get('payment_method', 'Cash')
     customer_id = data.get('customer_id') 
@@ -1462,10 +1521,21 @@ def checkout():
         # 1. Recalculate Totals
         totals = calculate_order_totals(database, cart, coupon_code)
         
-        # 2. Check Stock
+        # 2. Check & Deduct Stock Atomically (prevents race conditions)
         for item in cart:
-            book = database.books.find_one({'_id': ObjectId(item['id'])})
-            if not book or book.get('stock', 0) < item['quantity']:
+            result = database.books.find_one_and_update(
+                {'_id': ObjectId(item['id']), 'stock': {'$gte': int(item['quantity'])}},
+                {'$inc': {'stock': -int(item['quantity'])}}
+            )
+            if not result:
+                # Rollback any stock already deducted in this loop
+                for prev_item in cart:
+                    if prev_item is item:
+                        break
+                    database.books.update_one(
+                        {'_id': ObjectId(prev_item['id'])},
+                        {'$inc': {'stock': int(prev_item['quantity'])}}
+                    )
                 return jsonify({'error': f"Insufficient stock for {item['title']}"}), 400
         
         # 3. Create Sale Record
@@ -1498,12 +1568,7 @@ def checkout():
         result = database.sales.insert_one(sale_doc)
         sale_id = result.inserted_id
         
-        # 4. Update Stock & Coupon Usage
-        for item in cart:
-            database.books.update_one(
-                {'_id': ObjectId(item['id'])},
-                {'$inc': {'stock': -int(item['quantity'])}}
-            )
+        # 4. Update Coupon Usage (stock already deducted atomically above)
             
         if totals['applied_coupon']:
             database.coupons.update_one(
@@ -1570,7 +1635,7 @@ def create_user():
         
         doc = {
             'email': email,
-            'password': hashed,
+            'password_hash': hashed,
             'role': role,
             'created_at': datetime.utcnow()
         }
@@ -1597,9 +1662,9 @@ def delete_user(id):
 def get_cashier_management_stats():
     database = db.get_db_connection()
     try:
-         # 1. Staff Performance
+         # 1. Staff Performance (closed shifts)
          pipeline = [
-            {'$match': {'status': 'closed'}}, # Only closed shifts for revenue? Or active too?
+            {'$match': {'status': 'closed'}},
             {'$group': {
                 '_id': '$user_id', 
                 'shifts_count': {'$sum': 1}, 
@@ -1614,11 +1679,16 @@ def get_cashier_management_stats():
             {'$unwind': '$user'},
             {'$project': {
                 'email': '$user.email',
+                'username': '$user.username',
                 'shifts_count': 1,
                 'total_revenue': 1
             }}
         ]
          stats = list(database.shifts.aggregate(pipeline))
+         
+         # Serialize stats ObjectIds
+         for s in stats:
+             s['_id'] = str(s['_id'])
          
          # 2. Active Shifts
          pipeline_active = [
@@ -1630,13 +1700,17 @@ def get_cashier_management_stats():
                 'as': 'user'
              }},
              {'$unwind': '$user'},
-             # Calculate current sales for active shift?
-             # That requires joining sales.
+             # Calculate current sales for this specific cashier's shift
              {'$lookup': {
                  'from': 'sales',
-                 'let': {'start': '$start_time'},
+                 'let': {'start': '$start_time', 'uid': '$user_id'},
                  'pipeline': [
-                     {'$match': {'$expr': {'$gte': ['$sale_date', '$$start']}}},
+                     {'$match': {'$expr': {
+                         '$and': [
+                             {'$gte': ['$sale_date', '$$start']},
+                             {'$eq': ['$created_by', '$$uid']}
+                         ]
+                     }}},
                      {'$group': {'_id': None, 'total': {'$sum': '$total_amount'}}}
                  ],
                  'as': 'sales_data'
@@ -1646,11 +1720,18 @@ def get_cashier_management_stats():
              }},
              {'$project': {
                  'email': '$user.email',
+                 'username': '$user.username',
                  'start_time': 1,
                  'current_sales': 1
              }}
          ]
          active = list(database.shifts.aggregate(pipeline_active))
+         
+         # Serialize active shifts ObjectIds and datetimes
+         for a in active:
+             a['_id'] = str(a['_id'])
+             if 'start_time' in a and hasattr(a['start_time'], 'isoformat'):
+                 a['start_time'] = a['start_time'].isoformat()
          
          return jsonify({'stats': stats, 'active': active})
     except Exception as e:
@@ -1701,13 +1782,14 @@ def get_order(id):
         
     order['id'] = str(order['_id'])
     del order['_id']
-    if 'customer_id' in order: order['customer_id'] = str(order['customer_id'])
-    
-    # Items are likely embedded in MongoDB version for efficiency
-    # If not, we fetch from order_items collection
-    # My setup in checkout/create_order implies they might be embedded OR referenced.
-    # In `create_order` below, I will embed them.
-    # In my migration plan, I said simple arrays.
+    if 'customer_id' in order and order['customer_id']: order['customer_id'] = str(order['customer_id'])
+    # Serialize embedded item ObjectIds
+    for item in order.get('items', []):
+        if 'book_id' in item: item['book_id'] = str(item['book_id'])
+        if '_id' in item: item['_id'] = str(item['_id'])
+    # Serialize dates
+    if 'order_date' in order and hasattr(order['order_date'], 'isoformat'):
+        order['order_date'] = order['order_date'].isoformat()
     
     return jsonify(order)
 
@@ -1737,9 +1819,9 @@ def create_order():
             cust = database.customers.find_one({'user_id': ObjectId(session['user_id'])})
             if cust: customer_id = cust['_id']
             
-        # Generate Tracking
-        import random
-        tracking_number = f"INV-{random.randint(100000, 999999)}"
+        # Generate Tracking (UUID-based to prevent collisions)
+        import uuid
+        tracking_number = f"INV-{uuid.uuid4().hex[:8].upper()}"
         
         # Prepare Order Doc
         order_doc = {
@@ -1755,15 +1837,12 @@ def create_order():
             'items': []
         }
         
-        # Validate Items & Stock
+        # Validate Items & Build item list
         for item in items:
             book = database.books.find_one({'_id': ObjectId(item['book_id'])})
             if not book: return jsonify({'error': f"Book {item['book_id']} not found"}), 400
             
             qty = int(item['quantity'])
-            if book.get('stock', 0) < qty:
-                 return jsonify({'error': f"Insufficient stock for {book['title']}"}), 400
-                 
             order_doc['items'].append({
                 'book_id': book['_id'],
                 'title': book['title'],
@@ -1776,11 +1855,32 @@ def create_order():
         result = database.orders.insert_one(order_doc)
         order_id = result.inserted_id
         
-        # Deduct Stock
-        for item in order_doc['items']:
-            database.books.update_one(
-                {'_id': item['book_id']},
+        # Deduct Stock Atomically (prevents race conditions)
+        for i, item in enumerate(order_doc['items']):
+            result = database.books.find_one_and_update(
+                {'_id': item['book_id'], 'stock': {'$gte': item['quantity']}},
                 {'$inc': {'stock': -item['quantity']}}
+            )
+            if not result:
+                # Rollback previously deducted stock
+                for prev_item in order_doc['items'][:i]:
+                    database.books.update_one(
+                        {'_id': prev_item['book_id']},
+                        {'$inc': {'stock': prev_item['quantity']}}
+                    )
+                # Delete the already-inserted order
+                database.orders.delete_one({'_id': order_id})
+                return jsonify({'error': f"Insufficient stock for {item['title']}"}), 400
+        
+        # Send order confirmation email
+        if customer_email:
+            email_service.send_order_confirmation(
+                email=customer_email,
+                name=customer_name,
+                order_id=str(order_id),
+                tracking_number=tracking_number,
+                items=order_doc['items'],
+                total_amount=order_doc['total_amount']
             )
             
         return jsonify({'order_id': str(order_id), 'tracking_number': tracking_number, 'message': 'Order placed successfully'}), 201
@@ -1813,8 +1913,8 @@ def update_order_status(id):
             # Check if exists
             order = database.orders.find_one({'_id': ObjectId(id)})
             if order and not order.get('tracking_number'):
-                import random
-                update_doc['tracking_number'] = f"INV-{random.randint(100000, 999999)}"
+                import uuid
+                update_doc['tracking_number'] = f"INV-{uuid.uuid4().hex[:8].upper()}"
 
         database.orders.update_one({'_id': ObjectId(id)}, {'$set': update_doc})
         return jsonify({'message': 'Order status updated'})
@@ -1859,7 +1959,7 @@ def static_files(path):
     
     if 'user_id' not in session:
         if path.endswith('.html'):
-            return redirect('/staff_login.html')
+            return redirect('/admin/login')
     
     return send_from_directory('static', path)
 

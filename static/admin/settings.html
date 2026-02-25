@@ -199,7 +199,7 @@
                 // Load coupons
                 const couponRes = await fetch('/api/coupons');
                 if (couponRes.status === 401) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/admin/login.html';
                     return;
                 }
                 const coupons = await couponRes.json();
@@ -214,7 +214,7 @@
                             <td>${discount}</td>
                             <td>${c.valid_until || '-'}</td>
                             <td>
-                                <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteCoupon(${c.id})">Delete</button>
+                                <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteCoupon('${c.id}')">Delete</button>
                             </td>
                         </tr>
                     `;
@@ -239,7 +239,7 @@
                             <td>${p.discount_percent}%</td>
                             <td><span class="badge ${statusBadge}">${statusText}</span></td>
                             <td>
-                                <button class="btn btn-sm btn-primary" onclick="togglePromo(${p.id}, ${p.is_active})">${p.is_active ? 'Disable' : 'Enable'}</button>
+                                <button class="btn btn-sm btn-primary" onclick="togglePromo('${p.id}', ${p.is_active})">${p.is_active ? 'Disable' : 'Enable'}</button>
                             </td>
                         </tr>
                     `;
@@ -334,7 +334,7 @@
         async function logout() {
             if (confirm('Are you sure you want to sign out?')) {
                 await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login.html';
+                window.location.href = '/admin/login.html';
             }
         }
 

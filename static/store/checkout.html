@@ -132,15 +132,21 @@
 
 <body>
     <!-- Header -->
-    <header class="store-header">
+    <header class="store-header" id="storeHeader">
         <div class="header-inner">
             <a href="/store/" class="header-brand">📚 Inventro</a>
-            <nav class="header-nav">
+
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+
+            <nav class="header-nav" id="mainNav">
+                <button class="mobile-nav-close" onclick="toggleMobileMenu()">✕</button>
                 <a href="/store/" class="nav-link">Home</a>
                 <a href="/store/catalog.html" class="nav-link">All Books</a>
             </nav>
         </div>
     </header>
+    <div class="mobile-nav-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
+
 
     <div class="container" id="checkoutContent">
         <h1 class="section-title">Checkout</h1>
@@ -321,7 +327,39 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', loadOrderSummary);
+
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            document.getElementById('mainNav').classList.toggle('active');
+            document.getElementById('mobileOverlay').classList.toggle('open');
+        }
+
+        // Scroll shadow on header
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('storeHeader');
+            if (header) header.classList.toggle('scrolled', window.scrollY > 10);
+        });
+
+        // Auto-fill form for logged-in users
+        async function prefillUser() {
+            try {
+                const res = await fetch('/api/current_user');
+                if (res.ok) {
+                    const user = await res.json();
+                    const nameInput = document.querySelector('input[name="name"]');
+                    const emailInput = document.querySelector('input[name="email"]');
+                    const phoneInput = document.querySelector('input[name="phone"]');
+                    if (user.name && nameInput && !nameInput.value) nameInput.value = user.name;
+                    if (user.email && emailInput && !emailInput.value) emailInput.value = user.email;
+                    if (user.phone && phoneInput && !phoneInput.value) phoneInput.value = user.phone;
+                }
+            } catch (e) { /* not logged in, ignore */ }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOrderSummary();
+            prefillUser();
+        });
     </script>
 </body>
 

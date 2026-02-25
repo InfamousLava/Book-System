@@ -25,14 +25,22 @@ body {
     min-height: 100vh;
 }
 
-/* Header */
+/* Header — Glassmorphism + Sticky */
 .store-header {
-    background: var(--store-card);
-    border-bottom: 1px solid var(--store-border);
-    padding: 1rem 2rem;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(229, 231, 235, 0.6);
+    padding: 0 2rem;
     position: sticky;
     top: 0;
     z-index: 100;
+    transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+.store-header.scrolled {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .header-inner {
@@ -41,19 +49,29 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    height: 64px;
 }
 
 .header-brand {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 800;
     color: var(--store-accent);
     text-decoration: none;
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: transform 0.2s ease;
 }
 
-/* Navigation & Dropdowns */
+.header-brand:hover {
+    transform: scale(1.03);
+}
+
+/* Navigation */
 .header-nav {
     display: flex;
-    gap: 2rem;
+    gap: 0.5rem;
     align-items: center;
 }
 
@@ -61,13 +79,22 @@ body {
     color: var(--store-muted);
     text-decoration: none;
     font-weight: 500;
-    transition: all 0.2s;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    position: relative;
 }
 
-.nav-link:hover,
+.nav-link:hover {
+    color: var(--store-accent);
+    background: rgba(79, 70, 229, 0.06);
+}
+
 .nav-link.active {
     color: var(--store-accent);
+    background: rgba(79, 70, 229, 0.08);
+    font-weight: 600;
 }
 
 /* User Dropdown */
@@ -83,51 +110,61 @@ body {
     font-size: 0.9rem;
     font-weight: 500;
     color: var(--store-text);
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    transition: background 0.2s ease;
+}
+
+.user-trigger:hover {
+    background: rgba(79, 70, 229, 0.06);
 }
 
 .user-avatar-small {
-    width: 32px;
-    height: 32px;
-    background: var(--store-accent);
+    width: 34px;
+    height: 34px;
+    background: linear-gradient(135deg, var(--store-accent), var(--store-secondary));
     color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
 }
 
 .dropdown-menu {
     position: absolute;
-    top: 100%;
+    top: calc(100% + 6px);
     right: 0;
-    margin-top: 0.5rem;
     background: white;
     border: 1px solid var(--store-border);
-    border-radius: 8px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    min-width: 180px;
+    border-radius: 12px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+    min-width: 200px;
     opacity: 0;
     visibility: hidden;
-    transform: translateY(10px);
-    transition: all 0.2s;
+    transform: translateY(8px) scale(0.97);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     z-index: 101;
+    overflow: hidden;
 }
 
 .user-menu:hover .dropdown-menu {
     opacity: 1;
     visibility: visible;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
 }
 
 .dropdown-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     padding: 0.75rem 1rem;
     color: var(--store-text);
     text-decoration: none;
     font-size: 0.9rem;
-    transition: background 0.1s;
+    transition: all 0.15s ease;
 }
 
 .dropdown-item:hover {
@@ -146,46 +183,61 @@ body {
     background: var(--store-accent);
     color: white;
     padding: 0.5rem 1.25rem;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 500;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-weight: 600;
     text-decoration: none;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
 }
 
 .btn-login-nav:hover {
     background: var(--store-primary);
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    transform: translateY(-1px);
 }
 
 .header-actions {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     align-items: center;
 }
 
+/* Cart Button */
 .cart-btn {
     position: relative;
     background: none;
-    border: none;
-    font-size: 1.5rem;
+    border: 1.5px solid var(--store-border);
+    font-size: 1.25rem;
     cursor: pointer;
-    padding: 0.5rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    line-height: 1;
+}
+
+.cart-btn:hover {
+    border-color: var(--store-accent);
+    background: rgba(79, 70, 229, 0.04);
+    transform: translateY(-1px);
 }
 
 .cart-count {
     position: absolute;
-    top: 0;
-    right: 0;
-    background: var(--store-accent);
+    top: -6px;
+    right: -6px;
+    background: linear-gradient(135deg, #ef4444, #f97316);
     color: white;
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-size: 0.65rem;
+    font-weight: 700;
     width: 18px;
     height: 18px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.3);
 }
 
 .btn-login {
@@ -198,6 +250,143 @@ body {
     cursor: pointer;
     text-decoration: none;
 }
+
+/* ─── Mobile Hamburger ─── */
+.mobile-menu-btn {
+    display: none;
+    background: none;
+    border: 1.5px solid var(--store-border);
+    border-radius: 8px;
+    padding: 0.4rem 0.55rem;
+    font-size: 1.3rem;
+    cursor: pointer;
+    line-height: 1;
+    color: var(--store-text);
+    transition: all 0.2s ease;
+}
+
+.mobile-menu-btn:hover {
+    border-color: var(--store-accent);
+    color: var(--store-accent);
+}
+
+/* ─── Mobile Nav Close Button ─── */
+.mobile-nav-close {
+    display: none;
+}
+
+/* Mobile nav overlay */
+.mobile-nav-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 199;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.mobile-nav-overlay.open {
+    opacity: 1;
+}
+
+/* ─── Tablet & Mobile breakpoints ─── */
+@media (max-width: 768px) {
+    .store-header {
+        padding: 0 1rem;
+    }
+
+    .mobile-menu-btn {
+        display: block;
+        order: 3;
+    }
+
+    .header-nav {
+        position: fixed;
+        top: 0;
+        right: -300px;
+        width: 280px;
+        height: 100vh;
+        background: white;
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1.5rem;
+        gap: 0.25rem;
+        z-index: 200;
+        box-shadow: -8px 0 30px rgba(0, 0, 0, 0.1);
+        transition: right 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        overflow-y: auto;
+    }
+
+    .header-nav.active {
+        right: 0;
+    }
+
+    .mobile-nav-close {
+        display: flex;
+        align-self: flex-end;
+        background: none;
+        border: none;
+        font-size: 1.6rem;
+        cursor: pointer;
+        color: var(--store-muted);
+        padding: 0.25rem 0.5rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        transition: color 0.2s ease;
+    }
+
+    .mobile-nav-close:hover {
+        color: var(--store-text);
+    }
+
+    .mobile-nav-overlay {
+        display: block;
+    }
+
+    .nav-link {
+        font-size: 1rem;
+        padding: 0.85rem 1rem;
+        border-radius: 10px;
+    }
+
+    .nav-link.active {
+        background: rgba(79, 70, 229, 0.1);
+    }
+
+    .user-menu {
+        margin-top: 0.5rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--store-border);
+    }
+
+    .btn-login-nav {
+        display: block;
+        text-align: center;
+        padding: 0.85rem;
+        font-size: 0.95rem;
+        border-radius: 10px;
+    }
+
+    .cart-btn {
+        order: 2;
+    }
+
+    /* Dropdown: show inline in mobile menu */
+    .dropdown-menu {
+        position: static;
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        box-shadow: none;
+        border: none;
+        border-radius: 0;
+        min-width: unset;
+        margin-top: 0.25rem;
+    }
+}
+
 
 /* Hero Section */
 .hero {
@@ -627,16 +816,8 @@ body {
     color: rgba(255, 255, 255, 0.6);
 }
 
-/* ==================== RESPONSIVE: MOBILE (480px) ==================== */
+/* ==================== RESPONSIVE: SMALL MOBILE (480px) ==================== */
 @media (max-width: 480px) {
-    .store-header {
-        padding: 0.5rem;
-    }
-
-    .header-inner {
-        padding: 0.25rem;
-    }
-
     .hero {
         padding: 2rem 1rem;
     }

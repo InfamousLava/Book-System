@@ -593,7 +593,7 @@
                     <td class="order-amount">₹${parseFloat(order.total_amount || 0).toLocaleString()}</td>
                     <td><span class="status-badge status-${order.status}">${order.status}</span></td>
                     <td style="display: flex; gap: 0.5rem;">
-                        <button class="btn-view" onclick="viewOrder(${order.id}, event)">View</button>
+                        <button class="btn-view" onclick="viewOrder('${order.id}', event)">View</button>
                         ${getQuickAction(order.status, order.id)}
                     </td>
                 </tr>
@@ -803,7 +803,7 @@
 
         function logout() {
             fetch('/api/logout', { method: 'POST' }).then(() => {
-                window.location.href = '/staff_login.html';
+                window.location.href = '/admin/login.html';
             });
         }
 

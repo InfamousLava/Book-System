@@ -284,12 +284,12 @@
             // Check auth
             const res = await fetch('/api/orders/stats');
             if (res.status === 401) {
-                window.location.href = '/login.html';
+                window.location.href = '/admin/login.html';
                 return;
             }
             if (res.status === 403) {
                 alert('Access denied. Shipping Manager role required.');
-                window.location.href = '/login.html';
+                window.location.href = '/admin/login.html';
                 return;
             }
 
@@ -357,8 +357,8 @@
                             ${order.tracking_number ? `<span style="color: var(--admin-muted); font-size: 0.85rem;">Tracking: ${order.tracking_number}</span>` : ''}
                         </div>
                         <div class="order-actions">
-                            <button class="btn btn-sm btn-primary" onclick="openStatusModal(${order.id}, '${order.status}', '${order.tracking_number || ''}')">Update Status</button>
-                            <button class="btn btn-sm btn-secondary" onclick="viewOrder(${order.id})">View Details</button>
+                            <button class="btn btn-sm btn-primary" onclick="openStatusModal('${order.id}', '${order.status}', '${order.tracking_number || ''}')">Update Status</button>
+                            <button class="btn btn-sm btn-secondary" onclick="viewOrder('${order.id}')">View Details</button>
                         </div>
                     </div>
                 `;
@@ -489,7 +489,7 @@
 
         function logout() {
             fetch('/api/logout', { method: 'POST' }).then(() => {
-                window.location.href = '/login.html';
+                window.location.href = '/admin/login.html';
             });
         }
 

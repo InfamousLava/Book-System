@@ -156,7 +156,7 @@
                 // Load users
                 const usersRes = await fetch('/api/users');
                 if (usersRes.status === 401) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/admin/login.html';
                     return;
                 }
                 const users = await usersRes.json();
@@ -207,7 +207,7 @@
                             <td>${userStats.shifts_count}</td>
                             <td>₹${parseFloat(userStats.total_revenue || 0).toFixed(2)}</td>
                             <td>
-                                <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteUser(${u.id})">Delete</button>
+                                <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteUser('${u.id}')">Delete</button>
                             </td>
                         </tr>
                     `;
@@ -272,7 +272,7 @@
         async function logout() {
             if (confirm('Are you sure you want to sign out?')) {
                 await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login.html';
+                window.location.href = '/admin/login.html';
             }
         }
 

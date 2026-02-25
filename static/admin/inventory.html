@@ -215,7 +215,7 @@
             try {
                 const res = await fetch('/api/books');
                 if (res.status === 401) {
-                    window.location.href = '/login.html';
+                    window.location.href = '/admin/login.html';
                     return;
                 }
                 books = await res.json();
@@ -251,8 +251,8 @@
                         <td><span class="badge ${stockBadge}">${book.stock}</span></td>
                         <td>${book.barcode || '-'}</td>
                         <td>
-                            <button class="btn btn-sm btn-primary" onclick="editBook(${book.id})">Edit</button>
-                            <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteBook(${book.id})">Delete</button>
+                            <button class="btn btn-sm btn-primary" onclick="editBook('${book.id}')">Edit</button>
+                            <button class="btn btn-sm" style="background: var(--admin-danger); color: white;" onclick="deleteBook('${book.id}')">Delete</button>
                         </td>
                     </tr>
                 `;
@@ -318,7 +318,7 @@
         }
 
         function editBook(id) {
-            const book = books.find(b => b.id === id);
+            const book = books.find(b => String(b.id) === String(id));
             if (!book) return;
 
             document.getElementById('modalTitle').textContent = 'Edit Book';
@@ -397,7 +397,7 @@
         async function logout() {
             if (confirm('Sign out?')) {
                 await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login.html';
+                window.location.href = '/admin/login.html';
             }
         }
 

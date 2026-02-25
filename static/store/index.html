@@ -11,25 +11,29 @@
 
 <body>
     <!-- Header -->
-    <header class="store-header">
+    <header class="store-header" id="storeHeader">
         <div class="header-inner">
             <a href="/store/" class="header-brand">📚 Inventro</a>
 
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()">☰</button>
+            <button class="cart-btn" onclick="toggleCart()" aria-label="Cart">
+                🛒
+                <span class="cart-count" id="cartCount">0</span>
+            </button>
+
+            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
 
             <nav class="header-nav" id="mainNav">
+                <button class="mobile-nav-close" onclick="toggleMobileMenu()">✕</button>
                 <a href="/store/" class="nav-link active">Home</a>
                 <a href="/store/catalog.html" class="nav-link">All Books</a>
                 <div class="user-menu" id="authSection">
                     <a href="/customer/login.html" class="btn-login-nav">Login / Register</a>
                 </div>
-                <button class="cart-btn" onclick="toggleCart()" aria-label="Cart">
-                    🛒
-                    <span class="cart-count" id="cartCount">0</span>
-                </button>
             </nav>
         </div>
     </header>
+    <div class="mobile-nav-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
+
 
     <!-- Hero -->
     <section class="hero">
@@ -166,7 +170,7 @@
                             </div>
                             <div class="product-footer">
                                 <span class="product-price">₹${parseFloat(book.price).toFixed(2)}</span>
-                                <button class="btn-add" ${outOfStock ? 'disabled' : ''} onclick="addToCart(${book.id})">
+                                <button class="btn-add" ${outOfStock ? 'disabled' : ''} onclick="addToCart('${book.id}')">
                                     ${outOfStock ? 'Out of Stock' : 'Add to Cart'}
                                 </button>
                             </div>
@@ -202,10 +206,10 @@
         }
 
         function addToCart(bookId) {
-            const book = books.find(b => b.id === bookId);
+            const book = books.find(b => String(b.id) === String(bookId));
             if (!book) return;
 
-            const existing = cart.find(c => c.id === bookId);
+            const existing = cart.find(c => String(c.id) === String(bookId));
             if (existing) {
                 existing.quantity++;
             } else {
@@ -226,12 +230,12 @@
         }
 
         function updateQty(bookId, change) {
-            const item = cart.find(c => c.id === bookId);
+            const item = cart.find(c => String(c.id) === String(bookId));
             if (!item) return;
 
             item.quantity += change;
             if (item.quantity <= 0) {
-                cart = cart.filter(c => c.id !== bookId);
+                cart = cart.filter(c => String(c.id) !== String(bookId));
             }
 
             saveCart();
@@ -241,7 +245,14 @@
         // Mobile Menu Toggle
         function toggleMobileMenu() {
             document.getElementById('mainNav').classList.toggle('active');
+            document.getElementById('mobileOverlay').classList.toggle('open');
         }
+
+        // Scroll shadow on header
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('storeHeader');
+            if (header) header.classList.toggle('scrolled', window.scrollY > 10);
+        });
 
         // Shared Auth & Cart Logic
         function saveCart() {
@@ -273,9 +284,9 @@
                             <div class="cart-item-title">${item.title}</div>
                             <div class="cart-item-price">₹${parseFloat(item.price).toFixed(2)}</div>
                             <div class="cart-item-qty">
-                                <button class="qty-btn" onclick="updateQty(${item.id}, -1)">−</button>
+                                <button class="qty-btn" onclick="updateQty('${item.id}', -1)">−</button>
                                 <span>${item.quantity}</span>
-                                <button class="qty-btn" onclick="updateQty(${item.id}, 1)">+</button>
+                                <button class="qty-btn" onclick="updateQty('${item.id}', 1)">+</button>
                             </div>
                         </div>
                     </div>
