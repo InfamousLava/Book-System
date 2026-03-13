@@ -1250,6 +1250,7 @@ def calculate_order_totals(database, cart, coupon_code=None):
              promo_cats = promo.get('categories')
              item_cats = item.get('categories', [])
              if isinstance(item_cats, str): item_cats = [item_cats] # Handle legacy string cats
+             if not item_cats: item_cats = []
              
              is_match = False
              if not promo_cats:
@@ -1472,7 +1473,8 @@ def update_book(id):
         if 'price' in data: update_fields['price'] = float(data['price'])
         if 'stock' in data: update_fields['stock'] = int(data['stock'])
         if 'barcode' in data: update_fields['barcode'] = data['barcode']
-        if 'categories' in data: update_fields['categories'] = data['categories']
+        if 'categories' in data:
+            update_fields['categories'] = data['categories'] if isinstance(data['categories'], list) else [data['categories']] if data['categories'] else []
         if 'image_url' in data: update_fields['image_url'] = data['image_url']
         if 'warehouse_location' in data: update_fields['warehouse_location'] = data['warehouse_location']
         
