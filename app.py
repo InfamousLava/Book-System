@@ -1496,7 +1496,7 @@ def delete_book(id):
         # Mongo doesn't enforce FK, but good to check.
         # Check if book is in any sale items? Expensive check on `sales.items.book_id`.
         # For MVP, just delete.
-        
+
         result = database.books.delete_one({'_id': ObjectId(id)})
         if result.deleted_count == 0:
             return jsonify({'error': 'Book not found'}), 404
