@@ -1953,7 +1953,7 @@ def get_order_stats():
 # ==================== CATCH-ALL STATIC FILES (must be last!) ====================
 @app.route('/<path:path>')
 def static_files(path):
-    public_paths = ['admin/login.html', 'customer/login.html', 'customer/register.html', 'style.css', 'app.js', 'logo.png', 'css/', 'js/', 'store/']
+    public_paths = ['admin/login.html', 'customer/login.html', 'customer/register.html', 'style.css', 'app.js', 'logo.png', 'css/', 'js/', 'store/', 'uploads/']
     is_public = any(path.startswith(p) or path == p for p in public_paths)
     
     if is_public or path.startswith('html5-qrcode'):
@@ -1961,6 +1961,8 @@ def static_files(path):
     
     if 'user_id' not in session:
         if path.endswith('.html'):
+            if path.startswith('customer/'):
+                return redirect('/customer/login.html')
             return redirect('/admin/login')
     
     return send_from_directory('static', path)
