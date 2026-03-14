@@ -29,7 +29,7 @@ def track(result):
     return result[0]
 
 print("=" * 60)
-print("COMPREHENSIVE TEST (corrected)")
+print("COMPREHENSIVE TEST (dynamic book id)")
 print("=" * 60)
 
 # ===== PUBLIC ENDPOINTS =====
@@ -51,8 +51,18 @@ if r:
 r = track(test("admin.css", "GET", "/css/admin.css", 200))
 
 print("\n--- Public APIs ---")
-track(test("Store Books", "GET", "/api/store/books", 200))
-r = track(test("Book Detail", "GET", "/api/store/books/698e136d10ab1d729e67c158", 200))
+r = track(test("Store Books", "GET", "/api/store/books", 200))
+book_id = None
+if r and r.status_code == 200:
+    books = r.json()
+    if books:
+        book_id = books[0]['id']
+
+if not book_id:
+    print("NO BOOK ID FOUND. ABORTING.")
+    exit(1)
+
+r = track(test("Book Detail", "GET", f"/api/store/books/{book_id}", 200))
 
 # ===== CUSTOMER FLOW =====
 print("\n--- Customer Flow ---")
@@ -75,7 +85,7 @@ r, _ = test("Create Order", "POST", "/api/orders", 201, {
     "customer_name": "Test", "customer_email": email,
     "customer_phone": "1234567890", "shipping_address": "123 St",
     "total_amount": 10.0,
-    "items": [{"book_id": "698e136d10ab1d729e67c158", "quantity": 1, "price": 10.0}]
+    "items": [{"book_id": book_id, "quantity": 1, "price": 10.0}]
 }, S)
 track((r, r and r.status_code == 201))
 
@@ -108,7 +118,7 @@ track(test("Staff Login (cashier)", "POST", "/api/login/staff", 200, {
 
 track(test("Cashier Get Books", "GET", "/api/books", 200, session=C))
 track(test("POS Checkout", "POST", "/api/checkout", 200, {
-    "cart": [{"id": "698e136d10ab1d729e67c158", "title": "1984", "author": "George Orwell", "quantity": 1, "price": 8.99}],
+    "cart": [{"id": book_id, "title": "1984", "author": "George Orwell", "quantity": 1, "price": 8.99}],
     "payment_method": "cash"
 }, C))
 
@@ -120,8 +130,8 @@ R = requests.Session()
 track(test("Login for review", "POST", "/api/login/customer", 200, {
     "email": email, "password": "password123"
 }, R))
-track(test("Get Reviews", "GET", "/api/store/books/698e136d10ab1d729e67c158/reviews", 200, session=R))
-track(test("Add Review", "POST", "/api/store/books/698e136d10ab1d729e67c158/reviews", 201, {
+track(test("Get Reviews", "GET", f"/api/store/books/{book_id}/reviews", 200, session=R))
+track(test("Add Review", "POST", f"/api/store/books/{book_id}/reviews", 201, {
     "rating": 5, "comment": "Great book!"
 }, R))
 

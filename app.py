@@ -1250,6 +1250,7 @@ def calculate_order_totals(database, cart, coupon_code=None):
              promo_cats = promo.get('categories')
              item_cats = item.get('categories', [])
              if isinstance(item_cats, str): item_cats = [item_cats] # Handle legacy string cats
+             if not item_cats: item_cats = []
              
              is_match = False
              if not promo_cats:
@@ -1472,7 +1473,8 @@ def update_book(id):
         if 'price' in data: update_fields['price'] = float(data['price'])
         if 'stock' in data: update_fields['stock'] = int(data['stock'])
         if 'barcode' in data: update_fields['barcode'] = data['barcode']
-        if 'categories' in data: update_fields['categories'] = data['categories']
+        if 'categories' in data:
+            update_fields['categories'] = data['categories'] if isinstance(data['categories'], list) else [data['categories']] if data['categories'] else []
         if 'image_url' in data: update_fields['image_url'] = data['image_url']
         if 'warehouse_location' in data: update_fields['warehouse_location'] = data['warehouse_location']
         
@@ -1494,7 +1496,7 @@ def delete_book(id):
         # Mongo doesn't enforce FK, but good to check.
         # Check if book is in any sale items? Expensive check on `sales.items.book_id`.
         # For MVP, just delete.
-        
+
         result = database.books.delete_one({'_id': ObjectId(id)})
         if result.deleted_count == 0:
             return jsonify({'error': 'Book not found'}), 404
@@ -1951,7 +1953,7 @@ def get_order_stats():
 # ==================== CATCH-ALL STATIC FILES (must be last!) ====================
 @app.route('/<path:path>')
 def static_files(path):
-    public_paths = ['admin/login.html', 'customer/login.html', 'customer/register.html', 'style.css', 'app.js', 'logo.png', 'css/', 'js/', 'store/']
+    public_paths = ['admin/login.html', 'customer/login.html', 'customer/register.html', 'style.css', 'app.js', 'logo.png', 'css/', 'js/', 'store/', 'uploads/']
     is_public = any(path.startswith(p) or path == p for p in public_paths)
     
     if is_public or path.startswith('html5-qrcode'):
@@ -1959,6 +1961,8 @@ def static_files(path):
     
     if 'user_id' not in session:
         if path.endswith('.html'):
+            if path.startswith('customer/'):
+                return redirect('/customer/login.html')
             return redirect('/admin/login')
     
     return send_from_directory('static', path)
