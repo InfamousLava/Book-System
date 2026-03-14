@@ -578,3 +578,11 @@ body {
         font-size: 1rem;
     }
 }
+
+.btn-primary {
+    background: var(--cashier-primary);
+}
+.btn-primary:hover {
+    background: var(--cashier-primary-hover, var(--cashier-secondary));
+    transform: translateY(-1px);
+}

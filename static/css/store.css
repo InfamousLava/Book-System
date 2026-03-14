@@ -910,3 +910,10 @@ body {
         grid-template-columns: 1fr;
     }
 }
+.btn-primary {
+    background: var(--store-primary);
+}
+.btn-primary:hover {
+    background: var(--store-primary-hover, var(--store-secondary));
+    transform: translateY(-1px);
+}

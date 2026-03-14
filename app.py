@@ -13,6 +13,8 @@ from authlib.integrations.flask_client import OAuth
 from bson.objectid import ObjectId
 from datetime import datetime
 import mimetypes
+from utils.helpers import sanitize_input, validate_email, validate_phone, validate_positive_number, validate_integer_id, json_error
+from utils.auth import login_required, admin_required, inventory_required, shipping_required
 
 # Fix Windows MIME types - Python's mimetypes module returns application/x-css
 # instead of text/css on Windows, which breaks CSS loading when combined with
@@ -45,87 +47,6 @@ def add_security_headers(response):
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     return response
-
-# INPUT VALIDATION UTILITIES
-def sanitize_input(value, max_length=500):
-    """Sanitize string input to prevent XSS and limit length"""
-    if value is None:
-        return None
-    if not isinstance(value, str):
-        return value
-    value = str(value).strip()[:max_length]
-    value = re.sub(r'[<>]', '', value)
-    return value
-
-def validate_email(email):
-    """Validate email format"""
-    if not email:
-        return False
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, email))
-
-def validate_phone(phone):
-    """Validate phone number format"""
-    if not phone:
-        return True
-    pattern = r'^[\d\s\-\+]{7,20}$'
-    return bool(re.match(pattern, phone))
-
-def validate_positive_number(value):
-    try:
-        num = float(value)
-        return num >= 0
-    except (ValueError, TypeError):
-        return False
-
-def validate_integer_id(value):
-    # MongoDB IDs are strings (ObjectId), so strict integer validation might not apply only to IDs.
-    # But for quantities/book_ids (if using int IDs for books), we might need it.
-    # If we migrate Book IDs to ObjectId, this needs update.
-    # For now, let's assume we keep int IDs for books if we can, OR migrate them.
-    # PROPOSAL: Use ObjectId for everything.
-    return True # Allow strings for ObjectId
-
-# AUTH DECORATOR
-from functools import wraps
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-        return f(*args, **kwargs)
-    return decorated_function
-
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'role' not in session or session['role'] != 'admin':
-            return jsonify({'error': 'Admin access required'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-def inventory_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        role = session.get('role')
-        if not role:
-             return jsonify({'error': 'Not logged in'}), 401
-        if role not in ['admin', 'inventory_manager']:
-            return jsonify({'error': f'Access denied. Your role ({role}) cannot perform this action.'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-def shipping_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        role = session.get('role')
-        if not role:
-             return jsonify({'error': 'Not logged in'}), 401
-        if role not in ['admin', 'shipping_manager']:
-            return jsonify({'error': f'Access denied. Your role ({role}) cannot perform this action.'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
 
 # Serve frontend pages
 @app.route('/')
@@ -267,16 +188,16 @@ def google_callback():
 
 def _handle_login(data, is_customer):
     if not data:
-        return jsonify({'error': 'No data provided'}), 400
+        return json_error('No data provided', 400)
     
     email = sanitize_input(data.get('email', ''), 100)
     password = data.get('password', '')
     
     if not email or not validate_email(email):
-        return jsonify({'error': 'Valid email is required'}), 400
+        return json_error('Valid email is required', 400)
     
     if not password:
-        return jsonify({'error': 'Password is required'}), 400
+        return json_error('Password is required', 400)
     
     database = db.get_db_connection()
     
@@ -286,25 +207,25 @@ def _handle_login(data, is_customer):
         if user and check_password_hash(user.get('password_hash') or user.get('password', ''), password):
             # Role Check
             if is_customer and user.get('role') != 'customer':
-                return jsonify({'error': 'Staff cannot login here. Please use Staff Login.'}), 403
+                return json_error('Staff cannot login here. Please use Staff Login.', 403)
             if not is_customer and user.get('role') == 'customer':
-                return jsonify({'error': 'Customers cannot login here. Please use Customer Login.'}), 403
+                return json_error('Customers cannot login here. Please use Customer Login.', 403)
 
             session['user_id'] = str(user['_id'])
             session['email'] = user['email']
             session['role'] = user['role']
             return jsonify({'message': 'Login successful', 'role': user['role']}), 200
         
-        return jsonify({'error': 'Invalid credentials'}), 401
+        return json_error('Invalid credentials', 401)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
 
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     
     if not data:
-        return jsonify({'error': 'No data provided'}), 400
+        return json_error('No data provided', 400)
     
     email = sanitize_input(data.get('email', ''), 100)
     name = sanitize_input(data.get('name', ''), 100)
@@ -312,28 +233,28 @@ def register():
     password = data.get('password', '')
     
     if not email or not validate_email(email):
-        return jsonify({'error': 'Valid email is required'}), 400
+        return json_error('Valid email is required', 400)
     
     if not name or len(name) < 2:
-        return jsonify({'error': 'Name must be at least 2 characters'}), 400
+        return json_error('Name must be at least 2 characters', 400)
     
     if not validate_phone(phone):
-        return jsonify({'error': 'Invalid phone number format'}), 400
+        return json_error('Invalid phone number format', 400)
     
     if not password or len(password) < 6:
-        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        return json_error('Password must be at least 6 characters', 400)
     
     database = db.get_db_connection()
     
     try:
         # Check if email exists
         if database.users.find_one({'email': email}):
-            return jsonify({'error': 'Email already registered'}), 400
+            return json_error('Email already registered', 400)
             
         # Check if phone exists (in customers)
         if phone:
             if database.customers.find_one({'phone': phone}):
-                 return jsonify({'error': 'Phone number already registered'}), 400
+                 return json_error('Phone number already registered', 400)
 
         # Create User
         hashed_pw = generate_password_hash(password)
@@ -368,7 +289,7 @@ def register():
         return jsonify({'message': 'Registration successful'}), 201
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
 
 
 # ==================== STORE & DASHBOARD APIs (MongoDB) ====================
@@ -382,7 +303,7 @@ def my_orders():
         # user_id is stored as string in session
         user_id = session.get('user_id')
         if not user_id:
-             return jsonify({'error': 'User ID missing'}), 400
+             return json_error('User ID missing', 400)
 
         # Find customer profile
         customer = database.customers.find_one({'user_id': ObjectId(user_id)})
@@ -415,7 +336,7 @@ def my_orders():
         return jsonify(orders)
     except Exception as e:
         print(f"Error fetching orders: {e}")
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
@@ -642,7 +563,7 @@ def start_shift():
         session['shift_id'] = str(result.inserted_id)
         return jsonify({'message': 'Shift started', 'shift_id': str(result.inserted_id)}), 201
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/shift/summary', methods=['GET'])
 @login_required
@@ -670,7 +591,7 @@ def get_shift_summary():
         
         return jsonify({'total_sales': float(total)})
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/shift/end', methods=['POST'])
 @login_required
@@ -702,7 +623,7 @@ def end_shift():
                     }}
                 )
         except Exception as e:
-            return jsonify({'error': str(e)}), 400
+            return json_error(str(e), 400)
         
     session.clear()
     return jsonify({'message': 'Shift ended', 'total_sales': float(total) if shift_id else 0})
@@ -747,7 +668,7 @@ def public_store_books():
             books.append(b)
         return jsonify(books)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
 
 @app.route('/api/store/books/<id>') # Changed to string ID (ObjectId)
 def public_get_book(id):
@@ -756,13 +677,13 @@ def public_get_book(id):
     try:
         book = database.books.find_one({'_id': ObjectId(id)})
         if not book:
-            return jsonify({'error': 'Book not found'}), 404
+            return json_error('Book not found', 404)
         
         book['id'] = str(book['_id'])
         del book['_id']
         return jsonify(book)
     except Exception:
-        return jsonify({'error': 'Invalid Book ID'}), 400
+        return json_error('Invalid Book ID', 400)
 
 @app.route('/api/store/books/<id>/reviews', methods=['POST'])
 @login_required
@@ -783,14 +704,14 @@ def add_review(id):
         rating = int(rating)
         if not (1 <= rating <= 5): raise ValueError()
     except:
-        return jsonify({'error': 'Rating must be between 1 and 5'}), 400
+        return json_error('Rating must be between 1 and 5', 400)
 
     database = db.get_db_connection()
     try:
         # Check if user already reviewed
         existing = database.reviews.find_one({'user_id': ObjectId(user_id), 'book_id': ObjectId(id)})
         if existing:
-            return jsonify({'error': 'You have already reviewed this book'}), 400
+            return json_error('You have already reviewed this book', 400)
 
         # Handle Image Upload
         image_url = None
@@ -806,7 +727,7 @@ def add_review(id):
                 timestamp = int(time.time())
                 ext = os.path.splitext(filename)[1].lower()
                 if ext not in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
-                     return jsonify({'error': 'Invalid image format'}), 400
+                     return json_error('Invalid image format', 400)
                      
                 new_filename = f"review_{id}_{user_id}_{timestamp}{ext}"
                 save_path = os.path.join(app.static_folder, 'uploads', 'reviews', new_filename)
@@ -842,7 +763,7 @@ def add_review(id):
         return jsonify({'message': 'Review added successfully'}), 201
     except Exception as e:
         print(f"Review Error: {e}")
-        return jsonify({'error': 'Failed to add review'}), 500
+        return json_error('Failed to add review', 500)
 
 @app.route('/api/store/books/<id>/reviews', methods=['GET'])
 def get_reviews(id):
@@ -872,7 +793,7 @@ def get_reviews(id):
         reviews = list(database.reviews.aggregate(pipeline))
         return jsonify(reviews)
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/books/sync-ratings', methods=['POST'])
 @inventory_required
@@ -914,7 +835,7 @@ def sync_ratings():
         return jsonify({'message': f'Updated ratings for {updated_count} books'}), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/sales', methods=['GET'])
 @login_required
@@ -965,7 +886,7 @@ def get_sales():
             
         return jsonify(sales)
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/sales/<id>/items', methods=['GET'])
 @login_required
@@ -982,7 +903,7 @@ def get_sale_items(id):
             if '_id' in item: item['_id'] = str(item['_id'])
         return jsonify(items)
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 # ========= COUPON & PROMOTION APIs =========
 
@@ -1001,7 +922,7 @@ def get_coupons():
             coupons.append(c)
         return jsonify(coupons)
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/coupons', methods=['POST'])
 @admin_required
@@ -1050,7 +971,7 @@ def create_coupon():
         result = database.coupons.insert_one(coupon_doc)
         return jsonify({'id': str(result.inserted_id), 'message': 'Coupon created'}), 201
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/coupons/<id>', methods=['DELETE']) # String ID
 @admin_required
@@ -1060,7 +981,7 @@ def delete_coupon(id):
         database.coupons.update_one({'_id': ObjectId(id)}, {'$set': {'active': False}})
         return jsonify({'message': 'Coupon deactivated'}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 
 # === RULE ENGINE HELPER ===
@@ -1153,7 +1074,7 @@ def validate_coupon():
         }), 200
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/promotions', methods=['GET'])
 @login_required
@@ -1210,7 +1131,7 @@ def create_promotion():
         result = database.promotions.insert_one(doc)
         return jsonify({'id': str(result.inserted_id), 'message': 'Promotion created'}), 201
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/promotions/<id>', methods=['PUT']) # String ID
 @admin_required
@@ -1221,7 +1142,7 @@ def update_promotion(id):
         database.promotions.update_one({'_id': ObjectId(id)}, {'$set': {'active': data.get('active', True)}})
         return jsonify({'message': 'Promotion updated'}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 def calculate_order_totals(database, cart, coupon_code=None):
     # Pass 'database' object instead of 'cur'
@@ -1341,7 +1262,7 @@ def calculate_totals_endpoint():
         totals = calculate_order_totals(database, cart, coupon_code)
         return jsonify(totals)
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/customers', methods=['GET', 'POST'])
 @login_required
@@ -1355,7 +1276,7 @@ def handle_customers():
             if data.get('phone'):
                 existing = database.customers.find_one({'phone': data['phone']})
                 if existing:
-                     return jsonify({'error': 'Customer with this phone already exists'}), 400
+                     return json_error('Customer with this phone already exists', 400)
 
             doc = {
                 'name': data['name'],
@@ -1366,7 +1287,7 @@ def handle_customers():
             result = database.customers.insert_one(doc)
             return jsonify({'id': str(result.inserted_id), 'message': 'Customer created'}), 201
         except Exception as e:
-            return jsonify({'error': str(e)}), 400
+            return json_error(str(e), 400)
             
     else: # GET Search
         phone = request.args.get('phone', '').strip()
@@ -1415,7 +1336,7 @@ def get_books():
             books.append(b)
         return jsonify(books)
     except Exception as e:
-         return jsonify({'error': str(e)}), 500
+         return json_error(str(e), 500)
 
 @app.route('/api/books', methods=['POST'])
 @inventory_required
@@ -1423,12 +1344,12 @@ def add_book():
     try:
         data = request.json
         if not data:
-            return jsonify({'error': 'No data provided'}), 400
+            return json_error('No data provided', 400)
             
         required = ['title', 'author', 'price', 'stock']
         for field in required:
             if field not in data:
-                return jsonify({'error': f'Missing field: {field}'}), 400
+                return json_error(f'Missing field: {field}', 400)
         
         database = db.get_db_connection()
         
@@ -1436,7 +1357,7 @@ def add_book():
         barcode = data.get('barcode')
         if barcode:
             if database.books.find_one({'barcode': barcode}):
-                 return jsonify({'error': 'Barcode already exists'}), 400
+                 return json_error('Barcode already exists', 400)
         
         doc = {
             'title': data['title'],
@@ -1457,7 +1378,7 @@ def add_book():
         return jsonify({'id': str(result.inserted_id), 'message': 'Book added successfully'}), 201
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
 
 @app.route('/api/books/<id>', methods=['PUT']) # String ID
 @inventory_required
@@ -1481,11 +1402,11 @@ def update_book(id):
         result = database.books.update_one({'_id': ObjectId(id)}, {'$set': update_fields})
         
         if result.matched_count == 0:
-             return jsonify({'error': 'Book not found'}), 404
+             return json_error('Book not found', 404)
              
         return jsonify({'message': 'Book updated successfully'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/books/<id>', methods=['DELETE'])
 @inventory_required
@@ -1499,11 +1420,11 @@ def delete_book(id):
 
         result = database.books.delete_one({'_id': ObjectId(id)})
         if result.deleted_count == 0:
-            return jsonify({'error': 'Book not found'}), 404
+            return json_error('Book not found', 404)
             
         return jsonify({'message': 'Book deleted'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/checkout', methods=['POST'])
 @login_required # Only logged in users (like Cashiers) use this POS checkout
@@ -1515,7 +1436,7 @@ def checkout():
     customer_id = data.get('customer_id') 
     
     if not cart:
-        return jsonify({'error': 'Cart is empty'}), 400
+        return json_error('Cart is empty', 400)
         
     database = db.get_db_connection()
     
@@ -1538,7 +1459,7 @@ def checkout():
                         {'_id': ObjectId(prev_item['id'])},
                         {'$inc': {'stock': int(prev_item['quantity'])}}
                     )
-                return jsonify({'error': f"Insufficient stock for {item['title']}"}), 400
+                return json_error(f"Insufficient stock for {item['title']}", 400)
         
         # 3. Create Sale Record
         sale_doc = {
@@ -1587,7 +1508,7 @@ def checkout():
         
     except Exception as e:
         print(f"Checkout Error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return json_error(str(e), 500)
 
 @app.route('/cashiers')
 @admin_required
@@ -1612,25 +1533,25 @@ def get_users():
 @admin_required
 def create_user():
     data = request.json
-    if not data: return jsonify({'error': 'No data'}), 400
+    if not data: return json_error('No data', 400)
     
     email = sanitize_input(data.get('email', ''), 100)
     password = data.get('password', '')
     role = sanitize_input(data.get('role', ''), 30)
     
     if not email or not validate_email(email):
-        return jsonify({'error': 'Valid email is required'}), 400
+        return json_error('Valid email is required', 400)
     if not password or len(password) < 6:
-        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        return json_error('Password must be at least 6 characters', 400)
         
     valid_roles = ['admin', 'cashier', 'inventory_manager', 'shipping_manager']
     if role not in valid_roles:
-         return jsonify({'error': 'Invalid role'}), 400
+         return json_error('Invalid role', 400)
          
     database = db.get_db_connection()
     try:
         if database.users.find_one({'email': email}):
-             return jsonify({'error': 'Email already registered'}), 400
+             return json_error('Email already registered', 400)
              
         from werkzeug.security import generate_password_hash
         hashed = generate_password_hash(password)
@@ -1644,18 +1565,18 @@ def create_user():
         result = database.users.insert_one(doc)
         return jsonify({'id': str(result.inserted_id), 'message': 'User created'}), 201
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/users/<id>', methods=['DELETE'])
 @admin_required
 def delete_user(id):
     if id == session.get('user_id'):
-        return jsonify({'error': 'Cannot delete yourself'}), 400
+        return json_error('Cannot delete yourself', 400)
         
     database = db.get_db_connection()
     result = database.users.delete_one({'_id': ObjectId(id)})
     if result.deleted_count == 0:
-         return jsonify({'error': 'User not found'}), 404
+         return json_error('User not found', 404)
     return jsonify({'message': 'User deleted'})
 
 
@@ -1737,7 +1658,7 @@ def get_cashier_management_stats():
          
          return jsonify({'stats': stats, 'active': active})
     except Exception as e:
-         return jsonify({'error': str(e)}), 400
+         return json_error(str(e), 400)
 
 # ==================== ORDER APIs ====================
 
@@ -1747,7 +1668,7 @@ def get_orders():
     """Get all orders (for shipping manager and admin)"""
     role = session.get('role')
     if role not in ['admin', 'shipping_manager']:
-        return jsonify({'error': 'Access denied'}), 403
+        return json_error('Access denied', 403)
     
     database = db.get_db_connection()
     
@@ -1780,7 +1701,7 @@ def get_order(id):
     database = db.get_db_connection()
     order = database.orders.find_one({'_id': ObjectId(id)})
     if not order:
-        return jsonify({'error': 'Order not found'}), 404
+        return json_error('Order not found', 404)
         
     order['id'] = str(order['_id'])
     del order['_id']
@@ -1801,7 +1722,7 @@ def create_order():
     data = request.json
     
     # INPUT VALIDATION
-    if not data: return jsonify({'error': 'No data'}), 400
+    if not data: return json_error('No data', 400)
     
     customer_name = sanitize_input(data.get('customer_name', ''), 100)
     customer_email = sanitize_input(data.get('customer_email', ''), 100)
@@ -1810,8 +1731,8 @@ def create_order():
     total_amount = data.get('total_amount', 0)
     items = data.get('items', [])
     
-    if not customer_name: return jsonify({'error': 'Name required'}), 400
-    if not items: return jsonify({'error': 'Items required'}), 400
+    if not customer_name: return json_error('Name required', 400)
+    if not items: return json_error('Items required', 400)
     
     database = db.get_db_connection()
     try:
@@ -1842,7 +1763,7 @@ def create_order():
         # Validate Items & Build item list
         for item in items:
             book = database.books.find_one({'_id': ObjectId(item['book_id'])})
-            if not book: return jsonify({'error': f"Book {item['book_id']} not found"}), 400
+            if not book: return json_error(f"Book {item['book_id']} not found", 400)
             
             qty = int(item['quantity'])
             order_doc['items'].append({
@@ -1872,7 +1793,7 @@ def create_order():
                     )
                 # Delete the already-inserted order
                 database.orders.delete_one({'_id': order_id})
-                return jsonify({'error': f"Insufficient stock for {item['title']}"}), 400
+                return json_error(f"Insufficient stock for {item['title']}", 400)
         
         # Send order confirmation email
         if customer_email:
@@ -1888,7 +1809,7 @@ def create_order():
         return jsonify({'order_id': str(order_id), 'tracking_number': tracking_number, 'message': 'Order placed successfully'}), 201
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/orders/<id>/status', methods=['PUT'])
 @shipping_required
@@ -1901,7 +1822,7 @@ def update_order_status(id):
     
     valid_statuses = ['pending', 'confirmed', 'packed', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'cancelled']
     if new_status not in valid_statuses:
-        return jsonify({'error': 'Invalid status'}), 400
+        return json_error('Invalid status', 400)
         
     database = db.get_db_connection()
     
@@ -1921,7 +1842,7 @@ def update_order_status(id):
         database.orders.update_one({'_id': ObjectId(id)}, {'$set': update_doc})
         return jsonify({'message': 'Order status updated'})
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        return json_error(str(e), 400)
 
 @app.route('/api/orders/stats')
 @shipping_required

@@ -357,10 +357,7 @@ tr:hover {
     border: none;
 }
 
-.btn-primary {
-    background: var(--admin-secondary);
-    color: white;
-}
+
 
 .btn-primary:hover {
     background: #2563eb;
@@ -640,4 +637,12 @@ tr:hover {
     .chart-container {
         height: 200px;
     }
+}
+
+.btn-primary {
+    background: var(--admin-primary);
+}
+.btn-primary:hover {
+    background: var(--admin-primary-hover, var(--admin-secondary));
+    transform: translateY(-1px);
 }

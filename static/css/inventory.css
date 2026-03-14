@@ -213,10 +213,7 @@ body {
     transition: all 0.2s;
 }
 
-.btn-primary {
-    background: linear-gradient(135deg, var(--inv-secondary), #ea580c);
-    color: white;
-}
+
 
 .btn-primary:hover {
     transform: translateY(-1px);
@@ -487,4 +484,12 @@ tr:hover {
         padding: 0.5rem 1rem;
         font-size: 0.8rem;
     }
+}
+
+.btn-primary {
+    background: var(--inv-primary);
+}
+.btn-primary:hover {
+    background: var(--inv-primary-hover, var(--inv-secondary));
+    transform: translateY(-1px);
 }
