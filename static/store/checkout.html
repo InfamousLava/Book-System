@@ -137,13 +137,15 @@
         <div class="header-inner">
             <a href="/store/" class="header-brand">📚 Inventro</a>
 
-            <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
-
-            <nav class="header-nav" id="mainNav">
+            <div class="header-right">
+                <nav class="header-nav" id="mainNav">
                 <button class="mobile-nav-close" onclick="toggleMobileMenu()">✕</button>
                 <a href="/store/" class="nav-link">Home</a>
                 <a href="/store/catalog.html" class="nav-link">All Books</a>
             </nav>
+
+                <button class="mobile-menu-btn" onclick="toggleMobileMenu()" aria-label="Menu">☰</button>
+            </div>
         </div>
     </header>
     <div class="mobile-nav-overlay" id="mobileOverlay" onclick="toggleMobileMenu()"></div>
